@@ -18,6 +18,12 @@
   </div>
 </header>
 
+      <div v-if="preferenceSummary" class="pref-bar">
+        <span class="pref-label">偏好学习</span>
+        <span class="pref-text">{{ preferenceSummary }}</span>
+        <button class="pref-reset" @click="clearPreferences" title="清除已学习的偏好">重置</button>
+      </div>
+
       <div v-if="loading" class="loading">
         <div class="loading-step">{{ step }}</div>
         <div class="loading-hint">已用时 {{ elapsed }} 秒，请保持页面打开</div>
@@ -70,7 +76,10 @@ import ReportView from './components/ReportView.vue';
 import ChatBox from './components/ChatBox.vue';
 import { fetchDailyNews } from './api/news';
 import { analyzeNews } from './api/analyze';
-import { getTodayKey, getRecord, saveRecord, getAllRecords } from './storage';
+import {
+  getTodayKey, getRecord, saveRecord, getAllRecords,
+  getPreferences, recordPreference, resetPreferences
+} from './storage';
 
 const loading = ref(false);
 const error = ref('');
@@ -81,6 +90,33 @@ const todayKey = getTodayKey();
 const allRecords = ref([]);
 const selectedDate = ref(todayKey);
 const locked = ref(false);
+const prefs = ref(getPreferences());
+
+function refreshPrefs() {
+  prefs.value = getPreferences();
+}
+
+// 偏好摘要：展示权重最高的喜欢/不喜欢类型
+const preferenceSummary = computed(() => {
+  const entries = Object.entries(prefs.value.tags || {});
+  if (entries.length === 0) return '';
+  const liked = entries
+    .filter(([, w]) => w > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([tag, w]) => `${tag} +${w}`);
+  const disliked = entries
+    .filter(([, w]) => w < 0)
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, 4)
+    .map(([tag, w]) => `${tag} ${w}`);
+  return [...liked, ...disliked].join(' · ');
+});
+
+function clearPreferences() {
+  resetPreferences();
+  refreshPrefs();
+}
 
 function startProgress(initialStep) {
   step.value = initialStep;
@@ -99,7 +135,16 @@ function refreshLock() {
 }
 
 function toggleLock() {
-  setLocked(todayKey, !locked.value);
+  const next = !locked.value;
+  setLocked(todayKey, next);
+  // 锁定本日视为"喜欢"信号，记录当前新闻的类型偏好
+  if (next) {
+    const record = getRecord(todayKey);
+    if (record?.news?.tags?.length) {
+      recordPreference(record.news.tags, 1);
+      refreshPrefs();
+    }
+  }
   refreshLock();
 }
 
@@ -128,6 +173,13 @@ async function generate() {
   error.value = '';
   let saved = null;
   try {
+    // 重新生成视为对当前新闻的"不喜欢"信号
+    const existing = getRecord(todayKey);
+    if (existing?.news?.tags?.length) {
+      recordPreference(existing.news.tags, -1);
+      refreshPrefs();
+    }
+
     startProgress('正在抓取今日新闻…');
     const news = await fetchDailyNews();
     step.value = '正在生成财经分析（约 20-40 秒）…';

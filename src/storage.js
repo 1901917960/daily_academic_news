@@ -1,3 +1,5 @@
+import { adjustWeights } from './utils/preferences';
+
 const KEY = 'daily_academic_news';
 const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4MB 安全阈值
 const MAX_RECORDS = 30; // 最多保留 30 天记录
@@ -84,6 +86,34 @@ export function getAllRecords() {
   return Object.entries(all)
     .map(([date, record]) => ({ date, ...record }))
     .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+const PREF_KEY = 'daily_academic_prefs';
+
+// 新闻偏好：按新闻类型标签累计权重（锁定 +1，重新生成 -1）
+export function getPreferences() {
+  try {
+    const data = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+    return { tags: data.tags || {} };
+  } catch {
+    return { tags: {} };
+  }
+}
+
+export function recordPreference(tags, delta) {
+  const prefs = getPreferences();
+  prefs.tags = adjustWeights(prefs.tags, tags, delta);
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+  } catch (e) {
+    console.error('保存偏好失败', e);
+  }
+}
+
+export function resetPreferences() {
+  try {
+    localStorage.removeItem(PREF_KEY);
+  } catch { /* ignore */ }
 }
 
 const CHAT_KEY = 'daily_academic_chat';

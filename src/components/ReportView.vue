@@ -3,6 +3,9 @@
     <section class="card news-card">
       <h2 v-html="highlightKnowledge(news.title)"></h2>
       <p class="summary" v-html="highlightKnowledge(analysis.news_summary_cn)"></p>
+      <div v-if="news.tags && news.tags.length" class="news-tags">
+        <span v-for="tag in news.tags" :key="tag" class="news-tag">{{ tag }}</span>
+      </div>
       <p class="meta">{{ news.source }} · {{ news.date }}</p>
       <div class="news-links">
         <a
