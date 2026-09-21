@@ -1,4 +1,6 @@
 {
+  "installCommand": "rm -rf node_modules package-lock.json && npm install --include=optional --no-audit --no-fund",
+  "buildCommand": "npm run build",
   "outputDirectory": "./dist",
   "nodeVersion": "22.11.0",
   "rewrites": [
