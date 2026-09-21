@@ -1,4 +1,4 @@
-import { adjustWeights } from './utils/preferences';
+import { adjustWeights, setWeight } from './utils/preferences';
 
 const KEY = 'daily_academic_news';
 const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4MB 安全阈值
@@ -89,25 +89,71 @@ export function getAllRecords() {
 }
 
 const PREF_KEY = 'daily_academic_prefs';
+const PREF_HISTORY_LIMIT = 50;
 
-// 新闻偏好：按新闻类型标签累计权重（锁定 +1，重新生成 -1）
+// 新闻偏好：按新闻类型标签累计权重（锁定 +1，重新生成 -1），并保留学习记录
 export function getPreferences() {
   try {
     const data = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
-    return { tags: data.tags || {} };
+    return {
+      tags: data.tags || {},
+      history: Array.isArray(data.history) ? data.history : []
+    };
   } catch {
-    return { tags: {} };
+    return { tags: {}, history: [] };
   }
 }
 
-export function recordPreference(tags, delta) {
-  const prefs = getPreferences();
-  prefs.tags = adjustWeights(prefs.tags, tags, delta);
+function savePreferences(prefs) {
   try {
     localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
   } catch (e) {
     console.error('保存偏好失败', e);
   }
+}
+
+// 记录偏好信号；meta 传入 { title, date } 时会写入学习历史
+export function recordPreference(tags, delta, meta = null) {
+  const prefs = getPreferences();
+  prefs.tags = adjustWeights(prefs.tags, tags, delta);
+
+  if (meta && (meta.title || meta.date)) {
+    prefs.history = [
+      {
+        ts: Date.now(),
+        action: delta > 0 ? 'like' : 'dislike',
+        tags: tags || [],
+        title: meta.title || '',
+        date: meta.date || ''
+      },
+      ...prefs.history
+    ].slice(0, PREF_HISTORY_LIMIT);
+  }
+
+  savePreferences(prefs);
+}
+
+// 手动调整某标签权重
+export function adjustTagWeight(tag, delta) {
+  const prefs = getPreferences();
+  prefs.tags = adjustWeights(prefs.tags, [tag], delta);
+  savePreferences(prefs);
+}
+
+// 手动设置某标签权重
+export function setTagWeight(tag, weight) {
+  const prefs = getPreferences();
+  prefs.tags = setWeight(prefs.tags, tag, weight);
+  savePreferences(prefs);
+}
+
+// 删除某标签
+export function removeTag(tag) {
+  const prefs = getPreferences();
+  const next = { ...prefs.tags };
+  delete next[tag];
+  prefs.tags = next;
+  savePreferences(prefs);
 }
 
 export function resetPreferences() {

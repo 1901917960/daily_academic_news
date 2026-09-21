@@ -21,7 +21,7 @@
       <div v-if="preferenceSummary" class="pref-bar">
         <span class="pref-label">偏好学习</span>
         <span class="pref-text">{{ preferenceSummary }}</span>
-        <button class="pref-reset" @click="clearPreferences" title="清除已学习的偏好">重置</button>
+        <button class="pref-reset" @click="showPrefs = true">管理</button>
       </div>
 
       <div v-if="loading" class="loading">
@@ -65,6 +65,8 @@
         生成报告后可使用学术问答
       </div>
     </aside>
+
+    <PreferencePanel v-if="showPrefs" @close="closePrefs" />
   </div>
 </template>
 
@@ -74,11 +76,12 @@ import { saveKnowledgeForDate, isLocked, setLocked } from './storage';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import ReportView from './components/ReportView.vue';
 import ChatBox from './components/ChatBox.vue';
+import PreferencePanel from './components/PreferencePanel.vue';
 import { fetchDailyNews } from './api/news';
 import { analyzeNews } from './api/analyze';
 import {
   getTodayKey, getRecord, saveRecord, getAllRecords,
-  getPreferences, recordPreference, resetPreferences
+  getPreferences, recordPreference
 } from './storage';
 
 const loading = ref(false);
@@ -91,9 +94,15 @@ const allRecords = ref([]);
 const selectedDate = ref(todayKey);
 const locked = ref(false);
 const prefs = ref(getPreferences());
+const showPrefs = ref(false);
 
 function refreshPrefs() {
   prefs.value = getPreferences();
+}
+
+function closePrefs() {
+  showPrefs.value = false;
+  refreshPrefs();
 }
 
 // 偏好摘要：展示权重最高的喜欢/不喜欢类型
@@ -112,11 +121,6 @@ const preferenceSummary = computed(() => {
     .map(([tag, w]) => `${tag} ${w}`);
   return [...liked, ...disliked].join(' · ');
 });
-
-function clearPreferences() {
-  resetPreferences();
-  refreshPrefs();
-}
 
 function startProgress(initialStep) {
   step.value = initialStep;
@@ -141,7 +145,10 @@ function toggleLock() {
   if (next) {
     const record = getRecord(todayKey);
     if (record?.news?.tags?.length) {
-      recordPreference(record.news.tags, 1);
+      recordPreference(record.news.tags, 1, {
+        title: record.news.title,
+        date: todayKey
+      });
       refreshPrefs();
     }
   }
@@ -176,7 +183,10 @@ async function generate() {
     // 重新生成视为对当前新闻的"不喜欢"信号
     const existing = getRecord(todayKey);
     if (existing?.news?.tags?.length) {
-      recordPreference(existing.news.tags, -1);
+      recordPreference(existing.news.tags, -1, {
+        title: existing.news.title,
+        date: todayKey
+      });
       refreshPrefs();
     }
 

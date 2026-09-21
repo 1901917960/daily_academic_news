@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { adjustWeights, buildPreferenceHint } from '../preferences';
+import { adjustWeights, buildPreferenceHint, setWeight, sortPreferenceTags, NEWS_TAGS } from '../preferences';
 
 describe('adjustWeights', () => {
   it('喜欢的标签权重 +1', () => {
@@ -55,5 +55,53 @@ describe('buildPreferenceHint', () => {
     const hint = buildPreferenceHint({ 公司治理: 1 });
     expect(hint).toContain('偏好');
     expect(hint).not.toContain('不喜欢');
+  });
+});
+
+describe('setWeight', () => {
+  it('设置指定标签权重', () => {
+    expect(setWeight({ 公司治理: 1 }, '公司治理', 5)).toEqual({ 公司治理: 5 });
+  });
+
+  it('保留其他标签', () => {
+    expect(setWeight({ 公司治理: 1, 资本市场: 2 }, '公司治理', 0))
+      .toEqual({ 公司治理: 0, 资本市场: 2 });
+  });
+
+  it('不修改原对象', () => {
+    const original = { 公司治理: 1 };
+    setWeight(original, '公司治理', 9);
+    expect(original).toEqual({ 公司治理: 1 });
+  });
+
+  it('空标签原样返回', () => {
+    expect(setWeight({ 公司治理: 1 }, '', 5)).toEqual({ 公司治理: 1 });
+  });
+});
+
+describe('sortPreferenceTags', () => {
+  it('按权重从高到低排序', () => {
+    const sorted = sortPreferenceTags({ A: 1, B: 5, C: -2 });
+    expect(sorted).toEqual(['B', 'A', 'C']);
+  });
+
+  it('权重相同时固定标签优先', () => {
+    const sorted = sortPreferenceTags(
+      { 自定义: 2, 公司治理: 2 },
+      ['公司治理', '资本市场']
+    );
+    expect(sorted).toEqual(['公司治理', '自定义']);
+  });
+
+  it('固定标签之间按固定顺序', () => {
+    const sorted = sortPreferenceTags(
+      { 资本市场: 0, 公司治理: 0 },
+      ['公司治理', '资本市场']
+    );
+    expect(sorted).toEqual(['公司治理', '资本市场']);
+  });
+
+  it('固定标签列表非空时包含 12 个分类', () => {
+    expect(NEWS_TAGS.length).toBe(12);
   });
 });

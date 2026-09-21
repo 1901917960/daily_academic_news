@@ -1,6 +1,6 @@
 import { chatJson, getAccessCode } from './client';
 import { formatNewsDate, mergeNewsCandidates } from '../utils/news';
-import { buildPreferenceHint } from '../utils/preferences';
+import { NEWS_TAGS, buildPreferenceHint } from '../utils/preferences';
 import { getPreferences } from '../storage';
 
 // 多组关键词抓取，扩大当日候选范围
@@ -9,12 +9,6 @@ const QUERIES = [
   { endpoint: 'search', keywords: '消费 OR 品牌 OR 价格 OR 电商 OR 直播' },
   { endpoint: 'search', keywords: '行业 OR 监管 OR 政策 OR 竞争 OR 产能' },
   { endpoint: 'latest', keywords: '' }
-];
-
-// 固定的新闻类型标签（用于偏好学习，避免自由生成导致权重分散）
-const NEWS_TAGS = [
-  '公司治理', '劳资关系', '消费趋势', '资本市场', '监管政策', '行业竞争',
-  '商业模式', '商业伦理', '宏观经济', '企业管理', '品牌营销', '科技创新'
 ];
 
 function todayKey() {
