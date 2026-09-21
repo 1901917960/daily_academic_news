@@ -33,8 +33,15 @@ async function fetchCandidates() {
 
       return fetch(url, {
         headers: { 'x-access-code': getAccessCode() }
-      }).then(r => {
-        if (!r.ok) throw new Error(`新闻接口请求失败: ${r.status}`);
+      }).then(async r => {
+        if (!r.ok) {
+          let detail = '';
+          try {
+            const data = await r.json();
+            detail = data?.error?.message || '';
+          } catch { /* 忽略解析失败 */ }
+          throw new Error(`新闻接口请求失败: ${r.status}${detail ? `（${detail}）` : ''}`);
+        }
         return r.json();
       });
     })

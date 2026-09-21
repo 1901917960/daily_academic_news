@@ -7,7 +7,16 @@ const UPSTREAM = 'https://api.currentsapi.services/v1';
 const ALLOWED = ['/search', '/latest-news'];
 
 export default async function onRequest(context) {
-  const { request, env } = context;
+  try {
+    return await handle(context);
+  } catch (e) {
+    return jsonError(500, '新闻代理执行失败: ' + ((e && e.message) || '未知错误'));
+  }
+}
+
+async function handle(context) {
+  const { request } = context;
+  const env = context.env || {};
 
   if (request.method !== 'GET') {
     return jsonError(405, '仅支持 GET 请求');

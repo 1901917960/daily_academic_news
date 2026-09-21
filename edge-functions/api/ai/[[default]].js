@@ -5,7 +5,16 @@
 const UPSTREAM = 'https://api.deepseek.com';
 
 export default async function onRequest(context) {
-  const { request, env } = context;
+  try {
+    return await handle(context);
+  } catch (e) {
+    return jsonError(500, 'AI 代理执行失败: ' + ((e && e.message) || '未知错误'));
+  }
+}
+
+async function handle(context) {
+  const { request } = context;
+  const env = context.env || {};
 
   const accessCode = env.ACCESS_CODE;
   if (!accessCode) {
