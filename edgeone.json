@@ -1,5 +1,5 @@
 {
-  "installCommand": "rm -rf node_modules package-lock.json && npm install --include=optional --no-audit --no-fund",
+  "installCommand": "npm install --no-audit --no-fund --include=optional && npm install --no-save --force @rolldown/binding-linux-x64-gnu@1.2.8",
   "buildCommand": "npm run build",
   "outputDirectory": "./dist",
   "nodeVersion": "22.11.0",
