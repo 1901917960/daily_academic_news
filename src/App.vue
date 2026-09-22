@@ -210,7 +210,7 @@ async function generate() {
 
     startProgress('正在抓取今日新闻…');
     const news = await fetchDailyNews();
-    step.value = '正在生成财经分析（约 20-40 秒）…';
+    step.value = '正在生成财经分析与文献方向（约 30-60 秒）…';
     const analysis = await analyzeNews(news);
     step.value = '正在保存报告…';
     saveRecord(todayKey, news, analysis);

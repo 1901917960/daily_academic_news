@@ -66,6 +66,34 @@
         <div class="detail-row"><b>数据来源：</b><span v-html="highlightKnowledge(angle.data_source_hint)"></span></div>
         <div class="detail-row"><b>目标期刊：</b>{{ angle.related_journals.join('、') }}</div>
       </div>
+
+      <div v-if="analysis.literature_angle" class="card angle-card literature-card">
+        <div class="tags">
+          <span class="tag lit">文献启发</span>
+          <span class="tag maturity">
+            {{ analysis.literature_angle.paper_year }}<template v-if="analysis.literature_angle.paper_venue"> · {{ analysis.literature_angle.paper_venue }}</template>
+          </span>
+        </div>
+        <h4 v-html="highlightKnowledge(analysis.literature_angle.research_question)"></h4>
+        <div class="lit-paper">
+          <a
+            v-if="analysis.literature_angle.paper_url"
+            :href="analysis.literature_angle.paper_url"
+            target="_blank"
+            rel="noopener"
+            class="lit-paper-title"
+          >{{ analysis.literature_angle.paper_title }}</a>
+          <span v-else class="lit-paper-title">{{ analysis.literature_angle.paper_title }}</span>
+          <span v-if="analysis.literature_angle.paper_authors" class="lit-paper-meta">{{ analysis.literature_angle.paper_authors }}</span>
+        </div>
+        <div class="detail-row"><b>论文概要：</b><span v-html="highlightKnowledge(analysis.literature_angle.paper_summary)"></span></div>
+        <div class="detail-row"><b>不足与展望：</b><span v-html="highlightKnowledge(analysis.literature_angle.limitations)"></span></div>
+        <div class="detail-row"><b>与新闻关联：</b><span v-html="highlightKnowledge(analysis.literature_angle.connection)"></span></div>
+        <div class="detail-row"><b>理论视角：</b><span v-html="highlightKnowledge(analysis.literature_angle.theoretical_lens)"></span></div>
+        <div class="detail-row"><b>方法建议：</b><span v-html="highlightKnowledge(analysis.literature_angle.methodology_hint)"></span></div>
+        <div class="detail-row"><b>数据来源：</b><span v-html="highlightKnowledge(analysis.literature_angle.data_source_hint)"></span></div>
+        <div class="lit-note">文献来自 OpenAlex 检索；不足与展望为基于摘要的推断</div>
+      </div>
     </section>
 
     <section v-if="analysis.comparative_insight" class="card gap-card">

@@ -1,4 +1,5 @@
 import { chatJson } from './client';
+import { generateLiteratureAngle } from './literature';
 
 const SYSTEM_PROMPT = `你是一位同时精通会计学、管理学和金融学的学术研究者，熟悉Contemporary Accounting Research、Journal of Finance、Academy of Management Journal等顶级期刊的选题偏好和研究范式，也擅长从财经与管理视角拆解商业现象背后的利益结构与制度逻辑。
 
@@ -30,7 +31,8 @@ export async function analyzeNews(news) {
     }
   ],
   "comparative_insight": "与另一个相似现象或案例的结构类比（若无则输出空字符串）",
-  "key_insight": "一句话点出最值得深挖的洞见"
+  "key_insight": "一句话点出最值得深挖的洞见",
+  "paper_search_query": "用于在学术数据库检索相关文献的英文关键词（2-4 个学术通用词，空格分隔，不要标点，如 corporate governance）"
 }
 
 要求：
@@ -43,10 +45,20 @@ export async function analyzeNews(news) {
 - 严禁使用繁体字，例如：必须写"财务"不能写"財務"
 - 专业术语使用中国大陆学术界的通用译法`;
 
-  return chatJson({
+  const analysis = await chatJson({
     system: SYSTEM_PROMPT,
     prompt: userPrompt,
     temperature: 0.7,
     timeout: 120000
   });
+
+  // 附加步骤：检索相关文献，从其"不足与展望"衍生研究方向（失败不影响主报告）
+  try {
+    const angle = await generateLiteratureAngle(news, analysis);
+    if (angle) analysis.literature_angle = angle;
+  } catch (e) {
+    console.error('文献研究方向生成失败:', e);
+  }
+
+  return analysis;
 }

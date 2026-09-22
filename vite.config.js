@@ -37,12 +37,51 @@ function devRssProxy() {
   }
 }
 
+// 开发环境的学术文献检索代理（生产环境由 edge-functions/api/papers 处理）
+function devPapersProxy() {
+  return {
+    name: 'dev-papers-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/papers', async (req, res) => {
+        try {
+          const url = new URL(req.url, 'http://localhost')
+          const query = (url.searchParams.get('query') || '').trim()
+
+          if (!query) {
+            res.statusCode = 400
+            res.setHeader('content-type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify({ error: { message: '缺少检索关键词' } }))
+            return
+          }
+
+          const params = new URLSearchParams({
+            search: query.slice(0, 200),
+            'per-page': '25'
+          })
+
+          const upstream = await fetch(`https://api.openalex.org/works?${params}`, {
+            headers: { accept: 'application/json' }
+          })
+          const text = await upstream.text()
+          res.statusCode = upstream.status
+          res.setHeader('content-type', 'application/json; charset=utf-8')
+          res.end(text)
+        } catch (e) {
+          res.statusCode = 500
+          res.setHeader('content-type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify({ error: { message: String((e && e.message) || e) } }))
+        }
+      })
+    }
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    plugins: [vue(), devRssProxy()],
+    plugins: [vue(), devRssProxy(), devPapersProxy()],
     server: {
       proxy: {
         // 开发环境代理 DeepSeek：密钥只存在于本地 Node 进程，不进前端产物
