@@ -85,6 +85,9 @@
 
       <div class="chat-input-row">
         <textarea
+          id="chat-input"
+          name="chatInput"
+          autocomplete="off"
           v-model="input"
           :placeholder="pendingQuote ? '输入你的追问（可留空，直接点发送让AI展开）' : '输入问题，Enter 发送'"
           :disabled="sending"

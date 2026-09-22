@@ -37,6 +37,8 @@
             <span class="kg-breadcrumb-current">{{ activeCategory }}</span>
             <label class="kg-breadcrumb-toggle">
               <input
+                id="kg-show-neighbors"
+                name="kgShowNeighbors"
                 type="checkbox"
                 :checked="includeNeighbors"
                 @change="setIncludeNeighbors($event.target.checked)"
@@ -67,6 +69,9 @@
             >模糊</button>
           </div>
           <input
+            id="kg-search"
+            name="kgSearch"
+            autocomplete="off"
             v-model="searchQuery"
             :placeholder="searchMode === 'exact' ? '输入知识点名称，如：双重差分法' : '描述你记得的内容，如：评估政策效果的方法'"
             @input="onSearchInput"
@@ -231,11 +236,19 @@
             <h3>{{ editDialog.isNew ? '新建节点' : '编辑节点' }}</h3>
             <label>
               名称
-              <input v-model="editDialog.name" type="text" placeholder="知识点名称" maxlength="20">
+              <input
+                id="kg-node-name"
+                name="kgNodeName"
+                autocomplete="off"
+                v-model="editDialog.name"
+                type="text"
+                placeholder="知识点名称"
+                maxlength="20"
+              >
             </label>
             <label>
               分类
-              <select v-model="editDialog.category">
+              <select id="kg-node-category" name="kgNodeCategory" v-model="editDialog.category">
                 <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
               </select>
             </label>

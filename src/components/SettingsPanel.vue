@@ -52,6 +52,9 @@
 
           <div class="pref-add">
             <input
+              id="pref-new-tag"
+              name="prefNewTag"
+              autocomplete="off"
               v-model="newTag"
               type="text"
               placeholder="添加自定义关注方向，如：新能源、出海"

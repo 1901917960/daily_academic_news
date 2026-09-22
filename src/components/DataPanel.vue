@@ -30,7 +30,13 @@
             <button class="kg-btn" @click="exportData">导出全部数据</button>
             <label class="kg-btn data-import-label">
               导入备份
-              <input type="file" accept=".json,application/json" @change="onImportFile">
+              <input
+                id="data-import-file"
+                name="dataImportFile"
+                type="file"
+                accept=".json,application/json"
+                @change="onImportFile"
+              >
             </label>
           </div>
           <p v-if="importMessage" class="data-msg" :class="{ error: importError }">{{ importMessage }}</p>
