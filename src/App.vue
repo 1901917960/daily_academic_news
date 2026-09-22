@@ -15,14 +15,14 @@
     <button @click="generate" :disabled="loading || locked">
       {{ loading ? '分析中...' : '生成今日报告' }}
     </button>
-    <button @click="showData = true" title="存储占用、清理、备份与恢复">数据</button>
+    <button @click="showSettings = true" title="新闻来源、新闻偏好、数据管理">设置</button>
   </div>
 </header>
 
       <div v-if="preferenceSummary" class="pref-bar">
         <span class="pref-label">偏好学习</span>
         <span class="pref-text">{{ preferenceSummary }}</span>
-        <button class="pref-reset" @click="showPrefs = true">管理</button>
+        <button class="pref-reset" @click="showSettings = true">设置</button>
       </div>
 
       <div v-if="loading" class="loading">
@@ -67,7 +67,7 @@
       </div>
     </aside>
 
-    <PreferencePanel v-if="showPrefs" @close="closePrefs" />
+    <SettingsPanel v-if="showSettings" @close="closeSettings" @open-data="openData" />
     <DataPanel v-if="showData" @close="showData = false" />
   </div>
 </template>
@@ -78,7 +78,7 @@ import { saveKnowledgeForDate, isLocked, setLocked } from './storage';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import ReportView from './components/ReportView.vue';
 import ChatBox from './components/ChatBox.vue';
-import PreferencePanel from './components/PreferencePanel.vue';
+import SettingsPanel from './components/SettingsPanel.vue';
 import DataPanel from './components/DataPanel.vue';
 import { fetchDailyNews } from './api/news';
 import { analyzeNews } from './api/analyze';
@@ -97,16 +97,22 @@ const allRecords = ref([]);
 const selectedDate = ref(todayKey);
 const locked = ref(false);
 const prefs = ref(getPreferences());
-const showPrefs = ref(false);
+const showSettings = ref(false);
 const showData = ref(false);
 
 function refreshPrefs() {
   prefs.value = getPreferences();
 }
 
-function closePrefs() {
-  showPrefs.value = false;
+function closeSettings() {
+  showSettings.value = false;
   refreshPrefs();
+}
+
+function openData() {
+  showSettings.value = false;
+  refreshPrefs();
+  showData.value = true;
 }
 
 // 偏好摘要：展示权重最高的喜欢/不喜欢类型

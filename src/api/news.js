@@ -3,7 +3,8 @@ import {
   formatNewsDate, mergeNewsCandidates, sortCandidatesByDate, filterRecentCandidates
 } from '../utils/news';
 import { NEWS_TAGS, buildPreferenceHint } from '../utils/preferences';
-import { getPreferences } from '../storage';
+import { RSS_SOURCES, parseRssFeed } from '../utils/rss';
+import { getPreferences, getSettings } from '../storage';
 
 // 抓取组合：latest-news 保证时效（第 1、2 页），关键词搜索补充话题面
 const QUERIES = [
@@ -21,8 +22,8 @@ function todayKey() {
   return `${y}-${m}-${day}`;
 }
 
-// 抓取当日财经/商业新闻候选（经由同源代理，密钥保存在服务端）
-async function fetchCandidates() {
+// 抓取国外新闻候选（Currents，经由同源代理）
+async function fetchInternationalCandidates() {
   const results = await Promise.allSettled(
     QUERIES.map(q => {
       const params = new URLSearchParams({
@@ -58,6 +59,38 @@ async function fetchCandidates() {
 
   const merged = mergeNewsCandidates(lists, 80);
   // 按发布时间从新到旧排序，并优先保留最近两天的新闻
+  return filterRecentCandidates(sortCandidatesByDate(merged), { days: 2, minCount: 15 });
+}
+
+// 抓取国内新闻候选（华尔街见闻/中新网/人民网/钛媒体/爱范儿，RSS 经同源代理）
+async function fetchDomesticCandidates() {
+  const results = await Promise.allSettled(
+    RSS_SOURCES.map(src =>
+      fetch(`/api/rss?source=${encodeURIComponent(src.key)}`, {
+        headers: { 'x-access-code': getAccessCode() }
+      }).then(async r => {
+        if (!r.ok) {
+          let detail = '';
+          try {
+            const data = await r.json();
+            detail = data?.error?.message || '';
+          } catch { /* 忽略解析失败 */ }
+          throw new Error(`${src.label} 新闻源请求失败: ${r.status}${detail ? `（${detail}）` : ''}`);
+        }
+        const xml = await r.text();
+        return parseRssFeed(xml, { maxItems: 30 }).map(item => ({
+          ...item,
+          author: item.author || src.label
+        }));
+      })
+    )
+  );
+
+  const lists = results
+    .filter(r => r.status === 'fulfilled')
+    .map(r => r.value);
+
+  const merged = mergeNewsCandidates(lists, 80);
   return filterRecentCandidates(sortCandidatesByDate(merged), { days: 2, minCount: 15 });
 }
 
@@ -111,11 +144,21 @@ ${listText}
   });
 }
 
-// 获取今日新闻：实时抓取 + AI 筛选
+// 获取今日新闻：按用户设置选择新闻源，实时抓取 + AI 筛选
 export async function fetchDailyNews() {
-  const candidates = await fetchCandidates();
+  const source = getSettings().newsSource;
+  const isDomestic = source === 'domestic';
+
+  const candidates = isDomestic
+    ? await fetchDomesticCandidates()
+    : await fetchInternationalCandidates();
+
   if (candidates.length === 0) {
-    throw new Error('未获取到今日新闻，可能是新闻源暂时不可用，请稍后重试');
+    throw new Error(
+      isDomestic
+        ? '未获取到今日国内新闻，可能是新闻源暂时不可用，请稍后重试或切换为国外新闻'
+        : '未获取到今日新闻，可能是新闻源暂时不可用，请稍后重试'
+    );
   }
 
   let picked = null;
@@ -136,6 +179,7 @@ export async function fetchDailyNews() {
     date: formatNewsDate(candidate.published) || todayKey(),
     originalTitle: candidate.title,
     domesticQuery: (picked?.search_keywords || '').trim(),
+    isDomestic,
     tags: Array.isArray(picked?.tags)
       ? picked.tags.filter(t => NEWS_TAGS.includes(t)).slice(0, 3)
       : []

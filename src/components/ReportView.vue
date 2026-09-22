@@ -8,23 +8,34 @@
       </div>
       <p class="meta">{{ news.source }} · {{ news.date }}</p>
       <div class="news-links">
-        <a
-          v-if="domesticUrl"
-          :href="domesticUrl"
-          target="_blank"
-          rel="noopener"
-          class="link link-domestic"
-          title="在搜狗新闻中检索该事件的国内报道"
-        >国内相关报道 →</a>
-        <span v-if="domesticUrl && news.url" class="link-sep">·</span>
-        <a
-          v-if="news.url"
-          :href="news.url"
-          target="_blank"
-          rel="noopener"
-          class="link link-external"
-        >阅读原文 →</a>
-        <span v-if="news.url" class="link-hint">外网链接，可能无法直接访问</span>
+        <template v-if="news.isDomestic">
+          <a
+            v-if="news.url"
+            :href="news.url"
+            target="_blank"
+            rel="noopener"
+            class="link"
+          >阅读原文 →</a>
+        </template>
+        <template v-else>
+          <a
+            v-if="domesticUrl"
+            :href="domesticUrl"
+            target="_blank"
+            rel="noopener"
+            class="link link-domestic"
+            title="在搜狗新闻中检索该事件的国内报道"
+          >国内相关报道 →</a>
+          <span v-if="domesticUrl && news.url" class="link-sep">·</span>
+          <a
+            v-if="news.url"
+            :href="news.url"
+            target="_blank"
+            rel="noopener"
+            class="link link-external"
+          >阅读原文 →</a>
+          <span v-if="news.url" class="link-hint">外网链接，可能无法直接访问</span>
+        </template>
       </div>
     </section>
 
@@ -80,8 +91,10 @@ const highlightKnowledge = computed(() =>
   createKnowledgeHighlighter(getAllKnowledge().nodes.map(n => n.name))
 );
 
-// 国内相关报道：优先使用 AI 生成的检索关键词，老数据回退到标题
+// 国内相关报道检索：仅国外新闻需要（国内新闻的原文本身就是国内报道）
 const domesticUrl = computed(() =>
-  buildDomesticSearchUrl(props.news.domesticQuery || props.news.title)
+  props.news.isDomestic
+    ? ''
+    : buildDomesticSearchUrl(props.news.domesticQuery || props.news.title)
 );
 </script>

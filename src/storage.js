@@ -88,6 +88,27 @@ export function getAllRecords() {
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
+/* ---------- 用户设置 ---------- */
+
+const SETTINGS_KEY = 'daily_academic_settings';
+
+export function getSettings() {
+  try {
+    const data = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    return {
+      newsSource: data.newsSource === 'domestic' ? 'domestic' : 'international'
+    };
+  } catch {
+    return { newsSource: 'international' };
+  }
+}
+
+export function setSettings(updates) {
+  const next = { ...getSettings(), ...(updates || {}) };
+  safeSetItem(SETTINGS_KEY, JSON.stringify(next));
+  return next;
+}
+
 const PREF_KEY = 'daily_academic_prefs';
 const PREF_HISTORY_LIMIT = 50;
 
@@ -903,7 +924,7 @@ export function cleanupStorage() {
 
 const EXPORT_KEYS = [
   KEY, CHAT_TREE_KEY, KG_KEY, KG_CHAT_KEY, KG_MANUAL_KEY,
-  KG_AI_KEY, KG_CONCEPT_KEY, KG_PREF_KEY, PREF_KEY, LOCK_KEY
+  KG_AI_KEY, KG_CONCEPT_KEY, KG_PREF_KEY, PREF_KEY, SETTINGS_KEY, LOCK_KEY
 ];
 
 function byteSize(value) {
@@ -917,7 +938,7 @@ export function getStorageStats() {
     { label: '每日报告', keys: [KEY] },
     { label: '对话记录', keys: [CHAT_TREE_KEY] },
     { label: '思维库', keys: [KG_KEY, KG_CHAT_KEY, KG_MANUAL_KEY, KG_AI_KEY, KG_CONCEPT_KEY] },
-    { label: '偏好数据', keys: [PREF_KEY, KG_PREF_KEY] },
+    { label: '偏好与设置', keys: [PREF_KEY, KG_PREF_KEY, SETTINGS_KEY] },
     { label: '其他', keys: [LOCK_KEY] }
   ].map(g => {
     let bytes = 0;

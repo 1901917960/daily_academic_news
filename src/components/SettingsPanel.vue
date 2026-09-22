@@ -3,17 +3,32 @@
     <div class="kg-overlay" @click.self="$emit('close')">
       <div class="kg-modal pref-modal">
         <div class="kg-header">
-          <h2>偏好记录库</h2>
+          <h2>用户设置</h2>
           <button class="kg-close" @click="$emit('close')">×</button>
         </div>
 
         <div class="pref-body">
+          <div class="pref-section-title">新闻来源</div>
+          <div class="source-options">
+            <button
+              v-for="opt in sourceOptions"
+              :key="opt.value"
+              class="source-option"
+              :class="{ active: newsSource === opt.value }"
+              @click="chooseSource(opt.value)"
+            >
+              <span class="source-option-name">{{ opt.label }}</span>
+              <span class="source-option-desc">{{ opt.desc }}</span>
+            </button>
+          </div>
+          <p class="source-hint">切换后将在下次生成报告时生效</p>
+
+          <div class="pref-section-title">新闻偏好</div>
           <p class="pref-tip">
             自动学习：点击「确认本日」= 喜欢（+1），点击「生成今日报告」重新生成 = 不喜欢（-1）。
             生成报告时会优先选择你喜欢的类型；你也可以在下方手动调整。
           </p>
 
-          <div class="pref-section-title">类型权重</div>
           <div class="pref-list">
             <div v-for="item in tagList" :key="item.name" class="pref-row">
               <span class="pref-name">{{ item.name }}</span>
@@ -60,7 +75,8 @@
           </div>
 
           <div class="pref-footer">
-            <button class="kg-btn" @click="resetAll">全部重置</button>
+            <button class="kg-btn" @click="$emit('open-data')">数据管理</button>
+            <button class="kg-btn" @click="resetAll">重置全部偏好</button>
           </div>
         </div>
       </div>
@@ -76,13 +92,35 @@ import {
   adjustTagWeight,
   setTagWeight,
   removeTag as removeTagStorage,
-  resetPreferences
+  resetPreferences,
+  getSettings,
+  setSettings
 } from '../storage';
 
-defineEmits(['close']);
+defineEmits(['close', 'open-data']);
 
 const prefs = ref(getPreferences());
+const newsSource = ref(getSettings().newsSource);
 const newTag = ref('');
+
+const sourceOptions = [
+  {
+    value: 'international',
+    label: '国外新闻',
+    desc: 'Currents 全球源，话题面广；原文多为境外网站，可能无法直接访问'
+  },
+  {
+    value: 'domestic',
+    label: '国内新闻',
+    desc: '华尔街见闻 / 中新网 / 人民网 / 钛媒体 / 爱范儿，原文国内可直接打开'
+  }
+];
+
+function chooseSource(value) {
+  if (newsSource.value === value) return;
+  newsSource.value = value;
+  setSettings({ newsSource: value });
+}
 
 function reload() {
   prefs.value = getPreferences();
