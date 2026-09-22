@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { formatNewsDate, mergeNewsCandidates } from '../news';
+import {
+  formatNewsDate, mergeNewsCandidates,
+  parseNewsTimestamp, sortCandidatesByDate, filterRecentCandidates
+} from '../news';
+
+function currentsDate(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ` +
+    `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())} +0000`;
+}
 
 describe('formatNewsDate', () => {
   it('解析 Currents 日期格式', () => {
@@ -63,5 +72,76 @@ describe('mergeNewsCandidates', () => {
     expect(merged[0].description).toBe('');
     expect(merged[0].url).toBe('');
     expect(merged[0].author).toBe('');
+  });
+});
+
+describe('parseNewsTimestamp', () => {
+  it('解析 Currents 格式', () => {
+    expect(parseNewsTimestamp('2026-09-20 06:45:10 +0000'))
+      .toBe(Date.parse('2026-09-20T06:45:10Z'));
+  });
+
+  it('解析 ISO 格式', () => {
+    expect(parseNewsTimestamp('2026-09-20T06:45:10Z'))
+      .toBe(Date.parse('2026-09-20T06:45:10Z'));
+  });
+
+  it('无效输入返回 0', () => {
+    expect(parseNewsTimestamp('')).toBe(0);
+    expect(parseNewsTimestamp('not-a-date')).toBe(0);
+    expect(parseNewsTimestamp(undefined)).toBe(0);
+  });
+});
+
+describe('sortCandidatesByDate', () => {
+  it('按发布时间从新到旧排序', () => {
+    const list = [
+      { title: 'A', published: '2026-09-18 00:00:00 +0000' },
+      { title: 'B', published: '2026-09-22 00:00:00 +0000' },
+      { title: 'C', published: '2026-09-20 00:00:00 +0000' }
+    ];
+    expect(sortCandidatesByDate(list).map(c => c.title)).toEqual(['B', 'C', 'A']);
+  });
+
+  it('不修改原数组', () => {
+    const list = [
+      { title: 'A', published: '2026-09-18 00:00:00 +0000' },
+      { title: 'B', published: '2026-09-22 00:00:00 +0000' }
+    ];
+    sortCandidatesByDate(list);
+    expect(list[0].title).toBe('A');
+  });
+});
+
+describe('filterRecentCandidates', () => {
+  it('过滤掉超过两天的旧闻', () => {
+    const now = Date.now();
+    const list = [
+      { title: 'today', published: currentsDate(new Date(now - 3600 * 1000)) },
+      { title: '3days', published: currentsDate(new Date(now - 3 * 24 * 3600 * 1000)) }
+    ];
+    const result = filterRecentCandidates(list, { days: 2, minCount: 1 });
+    expect(result.map(c => c.title)).toEqual(['today']);
+  });
+
+  it('数量不足时自动放宽时间窗口', () => {
+    const now = Date.now();
+    const list = [
+      { title: 'today', published: currentsDate(new Date(now - 3600 * 1000)) },
+      { title: '2.5days', published: currentsDate(new Date(now - 2.5 * 24 * 3600 * 1000)) },
+      { title: '3.5days', published: currentsDate(new Date(now - 3.5 * 24 * 3600 * 1000)) }
+    ];
+    const result = filterRecentCandidates(list, { days: 2, minCount: 2 });
+    expect(result.length).toBe(2);
+    expect(result.some(c => c.title === 'today')).toBe(true);
+    expect(result.some(c => c.title === '2.5days')).toBe(true);
+  });
+
+  it('全部超期时原样返回（兜底不丢数据）', () => {
+    const now = Date.now();
+    const list = [
+      { title: 'old', published: currentsDate(new Date(now - 30 * 24 * 3600 * 1000)) }
+    ];
+    expect(filterRecentCandidates(list, { days: 2, minCount: 15 }).length).toBe(1);
   });
 });

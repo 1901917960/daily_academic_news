@@ -1,14 +1,16 @@
 import { chatJson, getAccessCode } from './client';
-import { formatNewsDate, mergeNewsCandidates } from '../utils/news';
+import {
+  formatNewsDate, mergeNewsCandidates, sortCandidatesByDate, filterRecentCandidates
+} from '../utils/news';
 import { NEWS_TAGS, buildPreferenceHint } from '../utils/preferences';
 import { getPreferences } from '../storage';
 
-// 多组关键词抓取，扩大当日候选范围
+// 抓取组合：latest-news 保证时效（第 1、2 页），关键词搜索补充话题面
 const QUERIES = [
+  { endpoint: 'latest', page: 1 },
+  { endpoint: 'latest', page: 2 },
   { endpoint: 'search', keywords: '公司 OR 企业 OR 员工 OR 裁员 OR 职场' },
-  { endpoint: 'search', keywords: '消费 OR 品牌 OR 价格 OR 电商 OR 直播' },
-  { endpoint: 'search', keywords: '行业 OR 监管 OR 政策 OR 竞争 OR 产能' },
-  { endpoint: 'latest', keywords: '' }
+  { endpoint: 'search', keywords: '消费 OR 品牌 OR 价格 OR 电商 OR 行业 OR 监管' }
 ];
 
 function todayKey() {
@@ -29,6 +31,7 @@ async function fetchCandidates() {
         page_size: '20'
       });
       if (q.keywords) params.set('keywords', q.keywords);
+      if (q.page && q.page > 1) params.set('page_number', String(q.page));
 
       const endpoint = q.endpoint === 'search' ? 'search' : 'latest-news';
       const url = `/api/news/${endpoint}?${params}`;
@@ -53,7 +56,9 @@ async function fetchCandidates() {
     .filter(r => r.status === 'fulfilled')
     .map(r => r.value.news || []);
 
-  return mergeNewsCandidates(lists, 60);
+  const merged = mergeNewsCandidates(lists, 80);
+  // 按发布时间从新到旧排序，并优先保留最近两天的新闻
+  return filterRecentCandidates(sortCandidatesByDate(merged), { days: 2, minCount: 15 });
 }
 
 // 让 AI 从当日新闻中挑选最有分析价值的一条
@@ -71,17 +76,17 @@ async function pickMostInteresting(candidates) {
     ? `\n用户历史偏好（仅供参考，不要因此降低选材标准）：\n${preferenceHint}\n`
     : '';
 
-  const prompt = `以下是刚刚抓取的今日财经/商业新闻候选（编号、来源、标题、摘要）。请选出最适合做"财经/管理深度分析"的 1 条。
+  const prompt = `以下是刚刚抓取的今日财经/商业新闻候选（编号、来源、标题、摘要），已按发布时间从新到旧排列（越靠前越新）。请选出最适合做"财经/管理深度分析"的 1 条。
 ${preferenceSection}
 候选列表：
 ${listText}
 
 选择标准（按重要性排序）：
-1. 有意思：有画面感、有商业张力、能引发讨论（企业治理冲突、劳资博弈、消费现象、行业转折、监管变化、商业伦理、公司战略）
-2. 有分析空间：能引出利益相关方博弈、制度缝隙或可研究的经验性问题
-3. 时效性：优先选择今天发生或正在发酵的事件
+1. 时效性：必须优先选择今天或昨天发生的事件，禁止选择两天前的旧闻（列表越靠前越新）
+2. 有意思：有画面感、有商业张力、能引发讨论（企业治理冲突、劳资博弈、消费现象、行业转折、监管变化、商业伦理、公司战略）
+3. 有分析空间：能引出利益相关方博弈、制度缝隙或可研究的经验性问题
 4. 用户偏好：在其他条件相近时，优先选择用户偏好的类型，避开用户不喜欢的类型
-避免：纯行情播报（股价涨跌、指数点位）、纯公告、纯宏观数据发布、体育娱乐类新闻
+避免：纯行情播报（股价涨跌、指数点位）、纯公告（董监异动、股东会通知、法说会公告等）、纯宏观数据发布、体育娱乐类新闻
 
 严格按 JSON 输出：
 {
