@@ -174,26 +174,6 @@ export function resetPreferences() {
   } catch { /* ignore */ }
 }
 
-const CHAT_KEY = 'daily_academic_chat';
-
-function loadAllChats() {
-  try {
-    return JSON.parse(localStorage.getItem(CHAT_KEY) || '{}');
-  } catch {
-    return {};
-  }
-}
-
-export function getChat(dateKey) {
-  return loadAllChats()[dateKey] || [];
-}
-
-export function saveChat(dateKey, messages) {
-  const all = loadAllChats();
-  all[dateKey] = messages;
-  localStorage.setItem(CHAT_KEY, JSON.stringify(all));
-}
-
 const CHAT_TREE_KEY = 'daily_academic_chat_tree_v2';
 
 export function getChatTree(dateKey) {
@@ -209,7 +189,7 @@ export function saveChatTree(dateKey, tree) {
   try {
     const all = JSON.parse(localStorage.getItem(CHAT_TREE_KEY) || '{}');
     all[dateKey] = tree;
-    localStorage.setItem(CHAT_TREE_KEY, JSON.stringify(all));
+    safeSetItem(CHAT_TREE_KEY, JSON.stringify(all));
   } catch (e) {
     console.error('保存对话树失败', e);
   }
@@ -231,7 +211,7 @@ export function getKnowledgeBase() {
 export function saveKnowledgeForDate(dateKey, points) {
   const kb = getKnowledgeBase();
   kb[dateKey] = points;
-  localStorage.setItem(KG_KEY, JSON.stringify(kb));
+  safeSetItem(KG_KEY, JSON.stringify(kb));
 }
 
 // 获取对话知识点
@@ -255,7 +235,7 @@ export function saveChatKnowledgeForDate(dateKey, points) {
       existing.add(p.name);
     }
   }
-  localStorage.setItem(KG_CHAT_KEY, JSON.stringify(kb));
+  safeSetItem(KG_CHAT_KEY, JSON.stringify(kb));
 }
 
 // 获取手动编辑的图谱数据
@@ -276,7 +256,7 @@ export function getManualGraph() {
 // 保存手动编辑的图谱数据
 export function saveManualGraph(graph) {
   try {
-    localStorage.setItem(KG_MANUAL_KEY, JSON.stringify(graph));
+    safeSetItem(KG_MANUAL_KEY, JSON.stringify(graph));
   } catch (e) {
     console.error('保存图谱失败', e);
   }
@@ -533,7 +513,7 @@ export function saveConcept(name, data) {
   try {
     const cache = JSON.parse(localStorage.getItem(KG_CONCEPT_KEY) || '{}');
     cache[name] = { ...(cache[name] || {}), ...data, updatedAt: Date.now() };
-    localStorage.setItem(KG_CONCEPT_KEY, JSON.stringify(cache));
+    safeSetItem(KG_CONCEPT_KEY, JSON.stringify(cache));
   } catch (e) {
     console.error('保存概念失败', e);
   }
@@ -556,7 +536,7 @@ export function getAIRelations() {
 // 保存 AI 推断的知识点关联
 export function saveAIRelations(data) {
   try {
-    localStorage.setItem(KG_AI_KEY, JSON.stringify(data));
+    safeSetItem(KG_AI_KEY, JSON.stringify(data));
   } catch (e) {
     console.error('保存 AI 关联失败', e);
   }
@@ -735,4 +715,255 @@ export function setLocked(dateKey, locked) {
   if (locked) all[dateKey] = true;
   else delete all[dateKey];
   localStorage.setItem(LOCK_KEY, JSON.stringify(all));
+}
+
+/* ---------- 存储治理 ---------- */
+
+const CLEANUP_CHAT_DAYS = 90;      // 对话记录保留天数
+const CLEANUP_LOCK_DAYS = 90;      // 锁定记录保留天数
+const CLEANUP_CONCEPT_LIMIT = 500; // 概念缓存保留条数
+const LEGACY_KEYS = [
+  'daily_academic_chat',        // 旧版聊天记录（已被对话树取代）
+  'daily_academic_used_topics'  // 旧版静态主题池记录（功能已移除）
+];
+
+let storageWarned = false;
+let cleaning = false;
+
+function notifyStorageFull() {
+  if (storageWarned) return;
+  storageWarned = true;
+  alert('本地存储空间不足，部分数据可能未保存。请在「数据管理」中导出备份并清理旧数据。');
+}
+
+// 带配额保护的写入：空间不足时先自动清理再重试（带防递归保护）
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22)) {
+      if (cleaning) {
+        notifyStorageFull();
+        return false;
+      }
+      cleaning = true;
+      try {
+        cleanupStorage();
+      } finally {
+        cleaning = false;
+      }
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch {
+        notifyStorageFull();
+        return false;
+      }
+    }
+    console.error('保存失败', e);
+    return false;
+  }
+}
+
+function dateKeyDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// 按日期键清理超过保留期的数据
+function pruneOldDateKeys(key, days) {
+  try {
+    const all = JSON.parse(localStorage.getItem(key) || '{}');
+    const cutoff = dateKeyDaysAgo(days);
+    let removed = 0;
+    for (const date of Object.keys(all)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date) && date < cutoff) {
+        delete all[date];
+        removed++;
+      }
+    }
+    if (removed > 0) safeSetItem(key, JSON.stringify(all));
+    return removed;
+  } catch {
+    return 0;
+  }
+}
+
+// 收集当前所有知识点名称（用于清理失效缓存）
+function collectKnowledgeNames() {
+  const names = new Set();
+  const addPoints = (kb) => {
+    for (const points of Object.values(kb || {})) {
+      if (!Array.isArray(points)) continue;
+      for (const p of points) {
+        if (p && p.name) names.add(p.name);
+      }
+    }
+  };
+  try { addPoints(getKnowledgeBase()); } catch { /* ignore */ }
+  try { addPoints(getChatKnowledge()); } catch { /* ignore */ }
+  try {
+    for (const n of getManualGraph().nodes) {
+      if (n && n.name) names.add(n.name);
+    }
+  } catch { /* ignore */ }
+  return names;
+}
+
+// 统一清理：返回各类型清理数量
+export function cleanupStorage() {
+  const removed = { legacy: 0, reports: 0, chats: 0, locks: 0, concepts: 0, relations: 0 };
+
+  // 1. 废弃的旧数据键
+  for (const key of LEGACY_KEYS) {
+    try {
+      if (localStorage.getItem(key) !== null) {
+        localStorage.removeItem(key);
+        removed.legacy++;
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 2. 每日报告：保留最近 MAX_RECORDS 天
+  try {
+    const all = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const dates = Object.keys(all).sort().reverse();
+    if (dates.length > MAX_RECORDS) {
+      const kept = {};
+      for (const date of dates.slice(0, MAX_RECORDS)) kept[date] = all[date];
+      safeSetItem(KEY, JSON.stringify(kept));
+      removed.reports = dates.length - MAX_RECORDS;
+    }
+  } catch { /* ignore */ }
+
+  // 3. 对话记录：保留最近 CLEANUP_CHAT_DAYS 天
+  removed.chats = pruneOldDateKeys(CHAT_TREE_KEY, CLEANUP_CHAT_DAYS);
+
+  // 4. 锁定记录：保留最近 CLEANUP_LOCK_DAYS 天
+  removed.locks = pruneOldDateKeys(LOCK_KEY, CLEANUP_LOCK_DAYS);
+
+  const names = collectKnowledgeNames();
+
+  // 5. 概念缓存：清理已删除知识点的概念，并限制总条数
+  try {
+    const cache = JSON.parse(localStorage.getItem(KG_CONCEPT_KEY) || '{}');
+    let changed = false;
+    for (const name of Object.keys(cache)) {
+      if (!names.has(name)) {
+        delete cache[name];
+        removed.concepts++;
+        changed = true;
+      }
+    }
+
+    const entries = Object.entries(cache);
+    if (entries.length > CLEANUP_CONCEPT_LIMIT) {
+      entries.sort((a, b) => ((b[1] && b[1].updatedAt) || 0) - ((a[1] && a[1].updatedAt) || 0));
+      removed.concepts += entries.length - CLEANUP_CONCEPT_LIMIT;
+      safeSetItem(KG_CONCEPT_KEY, JSON.stringify(Object.fromEntries(entries.slice(0, CLEANUP_CONCEPT_LIMIT))));
+    } else if (changed) {
+      safeSetItem(KG_CONCEPT_KEY, JSON.stringify(cache));
+    }
+  } catch { /* ignore */ }
+
+  // 6. AI 关联：清理引用已删除知识点的数据
+  try {
+    const ai = getAIRelations();
+    const beforeEdges = ai.edges.length;
+    const beforeLabels = Object.keys(ai.labels).length;
+    const beforeAnalyzed = ai.analyzedNodes.length;
+
+    ai.edges = ai.edges.filter(e => names.has(e.a) && names.has(e.b));
+    for (const key of Object.keys(ai.labels)) {
+      const [a, b] = key.split('||');
+      if (!names.has(a) || !names.has(b)) delete ai.labels[key];
+    }
+    ai.analyzedNodes = ai.analyzedNodes.filter(n => names.has(n));
+
+    const diff =
+      (beforeEdges - ai.edges.length) +
+      (beforeLabels - Object.keys(ai.labels).length) +
+      (beforeAnalyzed - ai.analyzedNodes.length);
+
+    if (diff > 0) {
+      removed.relations = diff;
+      safeSetItem(KG_AI_KEY, JSON.stringify(ai));
+    }
+  } catch { /* ignore */ }
+
+  return removed;
+}
+
+/* ---------- 数据备份与恢复 ---------- */
+
+const EXPORT_KEYS = [
+  KEY, CHAT_TREE_KEY, KG_KEY, KG_CHAT_KEY, KG_MANUAL_KEY,
+  KG_AI_KEY, KG_CONCEPT_KEY, KG_PREF_KEY, PREF_KEY, LOCK_KEY
+];
+
+function byteSize(value) {
+  if (typeof Blob !== 'undefined') return new Blob([value]).size;
+  return value.length * 2;
+}
+
+// 统计各模块的存储占用
+export function getStorageStats() {
+  const groups = [
+    { label: '每日报告', keys: [KEY] },
+    { label: '对话记录', keys: [CHAT_TREE_KEY] },
+    { label: '思维库', keys: [KG_KEY, KG_CHAT_KEY, KG_MANUAL_KEY, KG_AI_KEY, KG_CONCEPT_KEY] },
+    { label: '偏好数据', keys: [PREF_KEY, KG_PREF_KEY] },
+    { label: '其他', keys: [LOCK_KEY] }
+  ].map(g => {
+    let bytes = 0;
+    for (const key of g.keys) {
+      try {
+        const value = localStorage.getItem(key);
+        if (value) bytes += byteSize(value);
+      } catch { /* ignore */ }
+    }
+    return { label: g.label, bytes };
+  });
+
+  return {
+    groups,
+    total: groups.reduce((sum, g) => sum + g.bytes, 0)
+  };
+}
+
+// 导出全部数据
+export function exportAllData() {
+  const data = {};
+  for (const key of EXPORT_KEYS) {
+    try {
+      const value = localStorage.getItem(key);
+      if (value !== null) data[key] = JSON.parse(value);
+    } catch { /* 跳过损坏数据 */ }
+  }
+  return {
+    app: 'daily-academic-news',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data
+  };
+}
+
+// 导入备份数据（只接受本应用导出的格式，且只写入已知键）
+export function importAllData(payload) {
+  if (!payload || payload.app !== 'daily-academic-news' || typeof payload.data !== 'object' || payload.data === null) {
+    throw new Error('文件格式不正确，请选择本应用导出的备份文件');
+  }
+
+  let imported = 0;
+  for (const [key, value] of Object.entries(payload.data)) {
+    if (!EXPORT_KEYS.includes(key)) continue;
+    localStorage.setItem(key, JSON.stringify(value));
+    imported++;
+  }
+  return imported;
 }

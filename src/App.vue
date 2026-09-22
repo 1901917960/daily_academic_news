@@ -15,6 +15,7 @@
     <button @click="generate" :disabled="loading || locked">
       {{ loading ? '分析中...' : '生成今日报告' }}
     </button>
+    <button @click="showData = true" title="存储占用、清理、备份与恢复">数据</button>
   </div>
 </header>
 
@@ -67,6 +68,7 @@
     </aside>
 
     <PreferencePanel v-if="showPrefs" @close="closePrefs" />
+    <DataPanel v-if="showData" @close="showData = false" />
   </div>
 </template>
 
@@ -77,11 +79,12 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import ReportView from './components/ReportView.vue';
 import ChatBox from './components/ChatBox.vue';
 import PreferencePanel from './components/PreferencePanel.vue';
+import DataPanel from './components/DataPanel.vue';
 import { fetchDailyNews } from './api/news';
 import { analyzeNews } from './api/analyze';
 import {
   getTodayKey, getRecord, saveRecord, getAllRecords,
-  getPreferences, recordPreference, retractPreference
+  getPreferences, recordPreference, retractPreference, cleanupStorage
 } from './storage';
 
 const loading = ref(false);
@@ -95,6 +98,7 @@ const selectedDate = ref(todayKey);
 const locked = ref(false);
 const prefs = ref(getPreferences());
 const showPrefs = ref(false);
+const showData = ref(false);
 
 function refreshPrefs() {
   prefs.value = getPreferences();
@@ -237,6 +241,8 @@ async function generate() {
 }
 
 onMounted(() => {
+  // 启动时自动清理超期数据，避免长期使用撑爆本地存储
+  cleanupStorage();
   refreshData();
   refreshLock();
   const existing = getRecord(todayKey);
