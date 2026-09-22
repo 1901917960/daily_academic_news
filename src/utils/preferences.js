@@ -36,6 +36,23 @@ export function sortPreferenceTags(weights, fixedTags = []) {
   });
 }
 
+// 从历史记录中撤回一条"喜欢"记录（撤销锁定用）
+// 返回 { history, found }；found=false 表示没有对应记录，不应调整权重
+export function retractLike(history, meta) {
+  const list = [...(history || [])];
+  if (!meta || !meta.date) return { history: list, found: false };
+
+  const idx = list.findIndex(h =>
+    h.action === 'like' &&
+    h.date === meta.date &&
+    (!meta.title || h.title === meta.title)
+  );
+  if (idx === -1) return { history: list, found: false };
+
+  list.splice(idx, 1);
+  return { history: list, found: true };
+}
+
 // 根据权重生成给 AI 的偏好提示（空则返回空字符串）
 export function buildPreferenceHint(weights, maxPerSide = 5) {
   const entries = Object.entries(weights || {});

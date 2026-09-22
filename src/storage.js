@@ -1,4 +1,4 @@
-import { adjustWeights, setWeight } from './utils/preferences';
+import { adjustWeights, setWeight, retractLike } from './utils/preferences';
 
 const KEY = 'daily_academic_news';
 const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4MB 安全阈值
@@ -137,6 +137,18 @@ export function recordPreference(tags, delta, meta = null) {
 export function adjustTagWeight(tag, delta) {
   const prefs = getPreferences();
   prefs.tags = adjustWeights(prefs.tags, [tag], delta);
+  savePreferences(prefs);
+}
+
+// 撤回一次"喜欢"信号（撤销锁定时调用）：移除对应历史记录并回退权重
+// 没有对应的喜欢记录时不做任何调整
+export function retractPreference(tags, meta = null) {
+  const prefs = getPreferences();
+  const { history, found } = retractLike(prefs.history, meta);
+  if (!found) return;
+
+  prefs.history = history;
+  prefs.tags = adjustWeights(prefs.tags, tags, -1);
   savePreferences(prefs);
 }
 

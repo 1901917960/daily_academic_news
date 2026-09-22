@@ -81,7 +81,7 @@ import { fetchDailyNews } from './api/news';
 import { analyzeNews } from './api/analyze';
 import {
   getTodayKey, getRecord, saveRecord, getAllRecords,
-  getPreferences, recordPreference
+  getPreferences, recordPreference, retractPreference
 } from './storage';
 
 const loading = ref(false);
@@ -141,17 +141,25 @@ function refreshLock() {
 function toggleLock() {
   const next = !locked.value;
   setLocked(todayKey, next);
-  // 锁定本日视为"喜欢"信号，记录当前新闻的类型偏好
-  if (next) {
-    const record = getRecord(todayKey);
-    if (record?.news?.tags?.length) {
+
+  const record = getRecord(todayKey);
+  if (record?.news?.tags?.length) {
+    if (next) {
+      // 锁定本日视为"喜欢"信号，记录当前新闻的类型偏好
       recordPreference(record.news.tags, 1, {
         title: record.news.title,
         date: todayKey
       });
-      refreshPrefs();
+    } else {
+      // 撤销锁定：撤回之前的"喜欢"信号
+      retractPreference(record.news.tags, {
+        title: record.news.title,
+        date: todayKey
+      });
     }
+    refreshPrefs();
   }
+
   refreshLock();
 }
 

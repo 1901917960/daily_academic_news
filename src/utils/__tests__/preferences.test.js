@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { adjustWeights, buildPreferenceHint, setWeight, sortPreferenceTags, NEWS_TAGS } from '../preferences';
+import {
+  adjustWeights, buildPreferenceHint, setWeight, sortPreferenceTags, retractLike, NEWS_TAGS
+} from '../preferences';
 
 describe('adjustWeights', () => {
   it('喜欢的标签权重 +1', () => {
@@ -103,5 +105,47 @@ describe('sortPreferenceTags', () => {
 
   it('固定标签列表非空时包含 12 个分类', () => {
     expect(NEWS_TAGS.length).toBe(12);
+  });
+});
+
+describe('retractLike', () => {
+  const history = [
+    { ts: 3, action: 'dislike', date: '2026-09-21', title: '新闻B', tags: ['消费趋势'] },
+    { ts: 2, action: 'like', date: '2026-09-20', title: '新闻A', tags: ['公司治理'] },
+    { ts: 1, action: 'like', date: '2026-09-19', title: '新闻C', tags: ['资本市场'] }
+  ];
+
+  it('按日期和标题移除对应的喜欢记录', () => {
+    const { history: next, found } = retractLike(history, { date: '2026-09-20', title: '新闻A' });
+    expect(found).toBe(true);
+    expect(next.some(h => h.title === '新闻A')).toBe(false);
+    expect(next.length).toBe(2);
+  });
+
+  it('只按日期匹配（未提供标题时）', () => {
+    const { history: next, found } = retractLike(history, { date: '2026-09-19' });
+    expect(found).toBe(true);
+    expect(next.some(h => h.title === '新闻C')).toBe(false);
+  });
+
+  it('不会误删不喜欢记录', () => {
+    const { found } = retractLike(history, { date: '2026-09-21' });
+    expect(found).toBe(false);
+  });
+
+  it('没有对应记录时返回 found=false', () => {
+    const { history: next, found } = retractLike(history, { date: '2026-01-01', title: '不存在' });
+    expect(found).toBe(false);
+    expect(next.length).toBe(3);
+  });
+
+  it('不修改原数组', () => {
+    retractLike(history, { date: '2026-09-20', title: '新闻A' });
+    expect(history.length).toBe(3);
+  });
+
+  it('空历史安全处理', () => {
+    expect(retractLike(null, { date: '2026-09-20' }).found).toBe(false);
+    expect(retractLike([], { date: '2026-09-20' }).found).toBe(false);
   });
 });
