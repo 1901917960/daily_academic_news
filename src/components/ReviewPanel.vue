@@ -22,6 +22,10 @@
               <div v-if="revealed" class="review-concept">
                 <div v-if="conceptLoading" class="kg-concept-muted">正在获取概念…</div>
                 <div v-else-if="currentConcept" class="review-concept-text">{{ currentConcept }}</div>
+                <div v-else-if="conceptError" class="kg-concept-muted review-concept-error">
+                  {{ conceptError }}
+                  <button class="kg-link-btn" @click="reveal">重试</button>
+                </div>
                 <div v-else class="kg-concept-muted">暂未缓存概念，可先回忆再评分</div>
               </div>
               <button v-else class="kg-btn" @click="reveal">显示概念</button>
@@ -63,6 +67,7 @@ const queue = ref([]);
 const reviewedCount = ref(0);
 const revealed = ref(false);
 const conceptLoading = ref(false);
+const conceptError = ref('');
 const currentConcept = ref('');
 const loading = ref(true);
 
@@ -78,6 +83,7 @@ onMounted(() => {
 
 async function reveal() {
   revealed.value = true;
+  conceptError.value = '';
   const name = current.value?.name;
   if (!name) return;
 
@@ -90,9 +96,14 @@ async function reveal() {
   conceptLoading.value = true;
   try {
     const concept = await fetchConcept(name, current.value.category);
-    currentConcept.value = concept;
+    if (!concept) {
+      conceptError.value = '概念生成失败，请重试';
+    } else {
+      currentConcept.value = concept;
+    }
   } catch (e) {
     console.error('获取概念失败:', e);
+    conceptError.value = '概念生成失败，请重试';
   } finally {
     conceptLoading.value = false;
   }
@@ -115,5 +126,6 @@ function nextCard() {
   queue.value = queue.value.slice(1);
   revealed.value = false;
   currentConcept.value = '';
+  conceptError.value = '';
 }
 </script>

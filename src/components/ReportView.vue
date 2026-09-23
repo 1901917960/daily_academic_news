@@ -106,7 +106,7 @@
           <h4 v-html="highlightKnowledge(angle.research_question)"></h4>
           <span class="angle-chevron">{{ isAngleExpanded(i) ? '▾' : '▸' }}</span>
         </div>
-        <div v-if="!isCompact && isAngleExpanded(i)" class="angle-details">
+        <div v-if="isAngleExpanded(i)" class="angle-details">
           <div class="detail-row"><b>理论视角：</b><span v-html="highlightKnowledge(angle.theoretical_lens)"></span></div>
           <div class="detail-row"><b>方法建议：</b><span v-html="highlightKnowledge(angle.methodology_hint)"></span></div>
           <div class="detail-row"><b>数据来源：</b><span v-html="highlightKnowledge(angle.data_source_hint)"></span></div>
@@ -166,7 +166,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { getAllKnowledge, getSettings, setSettings } from '../storage';
 import { createKnowledgeHighlighter } from '../utils/highlight';
 import { buildDomesticSearchUrl } from '../utils/links';
@@ -178,7 +178,8 @@ const GRAPH_W = 320;
 const GRAPH_H = 180;
 
 const imageFailed = ref(false);
-const expandedAngles = ref(new Set());
+// 用普通对象做展开状态（比 Set 更直观可靠）
+const expandedAngles = reactive({});
 const literatureExpanded = ref(true);
 
 const highlightKnowledge = computed(() =>
@@ -193,14 +194,11 @@ function setView(view) {
 }
 
 function toggleAngle(i) {
-  const next = new Set(expandedAngles.value);
-  if (next.has(i)) next.delete(i);
-  else next.add(i);
-  expandedAngles.value = next;
+  expandedAngles[i] = !expandedAngles[i];
 }
 
 function isAngleExpanded(i) {
-  return expandedAngles.value.has(i);
+  return !!expandedAngles[i];
 }
 
 function toggleLiterature() {

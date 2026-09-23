@@ -2282,6 +2282,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   margin-bottom: 14px;
 }
 
+.review-concept-error {
+  color: #dc2626;
+}
+
 .review-actions {
   display: flex;
   gap: 10px;
