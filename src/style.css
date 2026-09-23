@@ -2228,121 +2228,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   margin-top: 4px;
 }
 
-/* ============ 复习面板 ============ */
-.review-modal {
-  max-width: 480px;
-}
-
-.review-loading {
-  text-align: center;
-  color: #888;
-  padding: 30px 0;
-}
-
-.review-progress {
-  font-size: 12.5px;
-  color: #888;
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.review-card {
-  padding: 20px;
-  border: 1px solid #ececf0;
-  border-radius: 12px;
-  background: #fafafb;
-  text-align: center;
-}
-
-.review-card-name {
-  font-size: 17px;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-.review-card-cat {
-  display: inline-block;
-  font-size: 12px;
-  padding: 2px 10px;
-  background: #eef2f7;
-  border-radius: 999px;
-  color: #4a5568;
-  margin-bottom: 14px;
-}
-
-.review-concept {
-  padding: 12px;
-  background: #fff;
-  border: 1px solid #ececf0;
-  border-radius: 8px;
-  font-size: 13.5px;
-  line-height: 1.8;
-  text-align: left;
-  color: #333;
-  margin-bottom: 14px;
-}
-
-.review-concept-error {
-  color: #dc2626;
-}
-
-.review-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.review-btn {
-  flex: 1;
-  padding: 8px 0;
-  font-size: 13.5px;
-  border-radius: 8px;
-  border: 1px solid #d0d0d5;
-  background: #fff;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.review-btn.unknown:hover {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  color: #dc2626;
-}
-
-.review-btn.fuzzy:hover {
-  background: #fffbeb;
-  border-color: #fcd34d;
-  color: #b45309;
-}
-
-.review-btn.known:hover {
-  background: #f0fdf4;
-  border-color: #86efac;
-  color: #16a34a;
-}
-
-.review-skip {
-  text-align: center;
-  margin-top: 12px;
-}
-
-.review-done {
-  text-align: center;
-  padding: 30px 0;
-  color: #16a34a;
-}
-
-.review-done-icon {
-  font-size: 40px;
-  margin-bottom: 8px;
-}
-
-.review-done-sub {
-  color: #999;
-  font-size: 12.5px;
-  margin-top: 4px;
-}
-
 /* ============ 空状态插画 ============ */
 .empty-illustration {
   width: 120px;
@@ -2534,17 +2419,6 @@ html.dark .source-option {
 html.dark .source-option.active {
   background: #23294a;
   border-color: #4f5bd4;
-}
-
-html.dark .review-card {
-  background: #1a1d24;
-  border-color: #2a2f3a;
-}
-
-html.dark .review-concept {
-  background: #14171d;
-  border-color: #2a2f3a;
-  color: #c2c8d2;
 }
 
 html.dark .stakeholder-node {

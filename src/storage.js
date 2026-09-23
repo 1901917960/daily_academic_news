@@ -146,28 +146,6 @@ export function getWeekKey() {
   return `${y}-${m}-${day2}`;
 }
 
-/* ---------- 知识点复习 ---------- */
-
-const REVIEW_KEY = 'daily_academic_review';
-
-export function getReviewState() {
-  try {
-    return JSON.parse(localStorage.getItem(REVIEW_KEY) || '{}');
-  } catch {
-    return {};
-  }
-}
-
-export function recordReview(name, rating, schedule) {
-  try {
-    const state = getReviewState();
-    state[name] = schedule;
-    safeSetItem(REVIEW_KEY, JSON.stringify(state));
-  } catch (e) {
-    console.error('保存复习记录失败', e);
-  }
-}
-
 /* ---------- 对话统计 ---------- */
 
 export function countChatTreeNodes() {
@@ -1003,7 +981,7 @@ export function cleanupStorage() {
 const EXPORT_KEYS = [
   KEY, CHAT_TREE_KEY, KG_KEY, KG_CHAT_KEY, KG_MANUAL_KEY,
   KG_AI_KEY, KG_CONCEPT_KEY, KG_PREF_KEY, PREF_KEY, SETTINGS_KEY,
-  WEEKLY_KEY, REVIEW_KEY, LOCK_KEY
+  WEEKLY_KEY, LOCK_KEY
 ];
 
 function byteSize(value) {

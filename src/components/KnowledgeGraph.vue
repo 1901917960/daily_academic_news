@@ -20,7 +20,6 @@
             <button class="kg-btn" @click="toggleSimulation" :title="simulationRunning ? '暂停模拟' : '启动模拟'">
               {{ simulationRunning ? '⏸ 暂停' : '▶ 启动' }}
             </button>
-            <button class="kg-btn" @click="showReview = true" title="按记忆程度复习知识点">复习</button>
           </div>
           <button class="kg-close" @click="$emit('close')">×</button>
         </div>
@@ -261,8 +260,6 @@
         </div>
       </div>
     </div>
-
-    <ReviewPanel v-if="showReview" @close="showReview = false" />
   </Teleport>
 </template>
 
@@ -285,7 +282,6 @@ import { labelRelations, suggestRelations } from '../api/relations';
 import { useForceGraph } from '../composables/useForceGraph';
 import { useKnowledgeSearch } from '../composables/useKnowledgeSearch';
 import { useConceptPanel } from '../composables/useConceptPanel';
-import ReviewPanel from './ReviewPanel.vue';
 
 defineEmits(['close']);
 
@@ -382,7 +378,6 @@ const showAllLabels = ref(getGraphPrefs().showEdgeLabels !== false);
 const contextMenu = ref({ show: false, x: 0, y: 0, type: '', target: null });
 const editDialog = ref({ show: false, isNew: false, node: null, name: '', category: '核心概念' });
 const connectingFrom = ref(null);
-const showReview = ref(false);
 
 // 关系标注显示控制
 function toggleEdgeLabels() {
