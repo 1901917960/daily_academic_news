@@ -57,7 +57,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { getAllKnowledge, getReviewState, recordReview, getConcept } from '../storage';
+import { getAllKnowledge, getReviewState, recordReview, getConcept, saveConcept } from '../storage';
 import { nextReviewSchedule, dueKnowledgePoints } from '../utils/review';
 import { fetchConcept } from '../api/concepts';
 
@@ -100,6 +100,8 @@ async function reveal() {
       conceptError.value = '概念生成失败，请重试';
     } else {
       currentConcept.value = concept;
+      // 写入缓存，避免下次复习重复生成（思维库与复习共用缓存）
+      saveConcept(name, { concept });
     }
   } catch (e) {
     console.error('获取概念失败:', e);
