@@ -1,4 +1,5 @@
 import { chatJson, chatTextStream } from './client';
+import { getAllKnowledge } from '../storage';
 
 const SYSTEM_PROMPT = `你是一位同时精通会计学、管理学和金融学的学术研究者，熟悉Contemporary Accounting Research、Journal of Finance、Academy of Management Journal、The Accounting Review等顶级期刊的研究范式与前沿进展。
 
@@ -45,9 +46,13 @@ ${analysis.research_angles.map((a, i) => `${i + 1}. [${a.field}] ${a.research_qu
    数据：${a.data_source_hint}`).join('\n')}
 核心洞见：${analysis.key_insight}`;
 
+  // 知识库概览：跨日期的知识点积累（最多 120 个），便于回答"我学过哪些…"类问题
+  const knowledgeText = buildKnowledgeOverview();
+
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'system', content: context },
+    ...(knowledgeText ? [{ role: 'system', content: knowledgeText }] : []),
     // 历史对话（只保留最近 10 轮，避免上下文过长）
     ...history.slice(-20).map(m => ({
       role: m.role,
@@ -57,6 +62,31 @@ ${analysis.research_angles.map((a, i) => `${i + 1}. [${a.field}] ${a.research_qu
   ];
 
   yield* chatTextStream({ messages, temperature: 0.7, timeout: 120000 });
+}
+
+// 知识库概览：按分类列出知识点名称
+function buildKnowledgeOverview() {
+  try {
+    const kb = getAllKnowledge();
+    if (!kb.nodes || kb.nodes.length === 0) return '';
+
+    const byCat = {};
+    for (const n of kb.nodes.slice(0, 120)) {
+      const cat = n.category || '其他';
+      if (!byCat[cat]) byCat[cat] = [];
+      byCat[cat].push(n.name);
+    }
+
+    const parts = Object.entries(byCat).map(
+      ([cat, names]) => `${cat}：${names.join('、')}`
+    );
+
+    return `【你的知识库】（用户长期积累的学术知识点，共 ${kb.nodes.length} 个，以下是部分列表）
+${parts.join('\n')}
+当用户问"我学过哪些…"或询问与历史学习相关的问题时，可结合此知识库回答。`;
+  } catch {
+    return '';
+  }
 }
 
 // 从对话回答中提取知识点

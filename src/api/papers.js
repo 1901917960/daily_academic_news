@@ -1,4 +1,4 @@
-import { getAccessCode } from './client';
+import { getOrRequestAccessCode } from './client';
 import { normalizeOpenAlexWorks, sortPapersByYear } from '../utils/papers';
 
 // 检索与主题相关的文献：取相关度最高的若干条后，优先保留较新的
@@ -19,10 +19,11 @@ export async function fetchRelatedPapers(query) {
 }
 
 async function requestPapers(query) {
+  const code = await getOrRequestAccessCode();
   const params = new URLSearchParams({ query });
 
   const response = await fetch(`/api/papers?${params}`, {
-    headers: { 'x-access-code': getAccessCode() }
+    headers: { 'x-access-code': code }
   });
 
   if (!response.ok) {

@@ -8,6 +8,7 @@ const ACCESS_CODE_KEY = 'daily_access_code';
 let cachedAccessCode = null;
 let clientInstance = null;
 let clientAccessCode = null;
+let pendingCodeResolve = null;
 
 // 访问码：部署环境需要（开发环境走 Vite 代理，无需访问码）
 export function getAccessCode() {
@@ -19,15 +20,48 @@ export function getAccessCode() {
     code = localStorage.getItem(ACCESS_CODE_KEY) || '';
   } catch { /* ignore */ }
 
-  if (!code && typeof window !== 'undefined') {
-    code = (window.prompt('请输入访问码（向站点所有者获取）') || '').trim();
-    if (code) {
-      try { localStorage.setItem(ACCESS_CODE_KEY, code); } catch { /* ignore */ }
-    }
-  }
-
   cachedAccessCode = code;
   return code;
+}
+
+// 通知界面弹出访问码输入框
+export function notifyCodeRequired() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('access-code-required'));
+  }
+}
+
+// 异步获取访问码：缺失时等待用户在弹窗中输入
+export function getOrRequestAccessCode() {
+  const code = getAccessCode();
+  if (code) return Promise.resolve(code);
+  notifyCodeRequired();
+  return new Promise(resolve => {
+    pendingCodeResolve = resolve;
+  });
+}
+
+// 弹窗提交访问码（返回是否成功保存）
+export function submitAccessCode(code) {
+  const value = String(code || '').trim();
+  cachedAccessCode = value || null;
+  if (value) {
+    try { localStorage.setItem(ACCESS_CODE_KEY, value); } catch { /* ignore */ }
+  }
+  if (pendingCodeResolve) {
+    const resolve = pendingCodeResolve;
+    pendingCodeResolve = null;
+    resolve(value);
+  }
+  return !!value;
+}
+
+export function cancelAccessCode() {
+  if (pendingCodeResolve) {
+    const resolve = pendingCodeResolve;
+    pendingCodeResolve = null;
+    resolve('');
+  }
 }
 
 export function clearAccessCode() {
@@ -36,8 +70,8 @@ export function clearAccessCode() {
 }
 
 // 请求统一走同源代理 /api/ai，API Key 保存在服务端
-function getClient() {
-  const code = getAccessCode();
+async function getClient() {
+  const code = await getOrRequestAccessCode();
   if (!clientInstance || clientAccessCode !== code) {
     clientInstance = new OpenAI({
       apiKey: code || 'missing',
@@ -55,7 +89,8 @@ function getClient() {
 function rethrowAuthError(e) {
   if (e && (e.status === 401 || e.status === 403)) {
     clearAccessCode();
-    throw new Error('访问码无效，请刷新页面后重新输入');
+    notifyCodeRequired();
+    throw new Error('访问码无效，请重新输入');
   }
   throw e;
 }
@@ -76,7 +111,8 @@ export async function chatJson({
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     // 请求层错误（网络/超时/5xx）由 SDK 的 maxRetries 机制处理，直接向上抛出
-    const response = await getClient().chat.completions.create({
+    const client = await getClient();
+    const response = await client.chat.completions.create({
       model: DEFAULT_MODEL,
       messages: [
         ...(system ? [{ role: 'system', content: system }] : []),
@@ -104,7 +140,8 @@ export async function* chatTextStream({
   temperature = 0.7,
   timeout = 120000
 }) {
-  const stream = await getClient().chat.completions.create({
+  const client = await getClient();
+  const stream = await client.chat.completions.create({
     model: DEFAULT_MODEL,
     messages: [
       ...(system ? [{ role: 'system', content: system }] : []),

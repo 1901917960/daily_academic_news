@@ -72,6 +72,12 @@ describe('mergeNewsCandidates', () => {
     expect(merged[0].description).toBe('');
     expect(merged[0].url).toBe('');
     expect(merged[0].author).toBe('');
+    expect(merged[0].image).toBe('');
+  });
+
+  it('保留新闻配图字段', () => {
+    const merged = mergeNewsCandidates([[{ title: '带图新闻', image: 'https://example.com/a.jpg' }]]);
+    expect(merged[0].image).toBe('https://example.com/a.jpg');
   });
 });
 

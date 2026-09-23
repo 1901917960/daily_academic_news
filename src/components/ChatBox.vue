@@ -62,11 +62,21 @@
               <div class="question-text">{{ node.question }}</div>
             </div>
           </div>
-          <div v-if="node.answer" class="msg assistant">
+          <div v-if="node.error" class="msg assistant msg-error">
+            <div class="msg-content">{{ node.error }}</div>
+            <button class="retry-btn" @click="retryNode(node.id)">重试</button>
+          </div>
+          <div v-else-if="node.answer" class="msg assistant">
             <div
               class="msg-content markdown-body"
+              :class="{ 'answer-clamped': isCollapsed(node) }"
               v-html="htmlCache[node.id]?.html || ''"
             ></div>
+            <button
+              v-if="isLongAnswer(node)"
+              class="collapse-toggle"
+              @click="toggleCollapse(node.id)"
+            >{{ isCollapsed(node) ? '展开全文' : '收起' }}</button>
           </div>
           <div v-else class="msg assistant">
             <div class="msg-content typing">思考中...</div>
@@ -147,6 +157,26 @@ const pendingQuote = ref(null);  // { text, fromNodeId }
 const showQuoteBtn = ref(false);
 const quotePos = ref({ top: 0, left: 0 });
 const rawSelection = ref({ text: '', nodeId: '' });
+
+// 长回答折叠状态
+const collapsedAnswers = ref(new Set());
+
+const LONG_ANSWER_CHARS = 800;
+
+function isLongAnswer(node) {
+  return !!node.answer && node.answer.length > LONG_ANSWER_CHARS;
+}
+
+function isCollapsed(node) {
+  return collapsedAnswers.value.has(node.id);
+}
+
+function toggleCollapse(nodeId) {
+  const next = new Set(collapsedAnswers.value);
+  if (next.has(nodeId)) next.delete(nodeId);
+  else next.add(nodeId);
+  collapsedAnswers.value = next;
+}
 
 // 回答的渲染缓存：{ [nodeId]: { src, html } }（不持久化，避免存储膨胀）
 const htmlCache = ref({});
@@ -294,19 +324,27 @@ async function send() {
   sending.value = true;
   scrollToBottom();
 
+  await runNode(nodeId);
+}
+
+// 执行某个节点的问答（流式输出、错误处理），可被重试复用
+async function runNode(nodeId) {
+  const node = nodes.value[nodeId];
+  if (!node) return;
+
+  const parentId = node.parentId;
+  const pathToParent = parentId ? getPath(parentId) : [];
+  const history = [];
+  for (const n of pathToParent) {
+    history.push({ role: 'user', content: n.question });
+    if (n.answer) history.push({ role: 'assistant', content: n.answer });
+  }
+
+  const questionForApi = node.quote
+    ? `【用户引用的原文】\n"${node.quote.text}"\n\n【用户的问题】\n${node.question}`
+    : node.question;
+
   try {
-    // 发送给 API 的历史：从根到 parentId 的路径
-    const pathToParent = parentId ? getPath(parentId) : [];
-    const history = [];
-    for (const n of pathToParent) {
-      history.push({ role: 'user', content: n.question });
-      if (n.answer) history.push({ role: 'assistant', content: n.answer });
-    }
-
-    const questionForApi = hasQuote
-      ? `【用户引用的原文】\n"${quoteInfo.text}"\n\n【用户的问题】\n${finalQuestion}`
-      : finalQuestion;
-
     const stream = streamChatWithContext({
       news: props.news,
       analysis: props.analysis,
@@ -325,6 +363,10 @@ async function send() {
     }
 
     if (!reply) throw new Error('未收到回答内容');
+    nodes.value = {
+      ...nodes.value,
+      [nodeId]: { ...nodes.value[nodeId], answer: reply, error: '' }
+    };
     persist();
 
     // 后台提取对话中的知识点并保存（不阻塞对话）
@@ -336,15 +378,27 @@ async function send() {
       })
       .catch(error => console.error('提取知识点失败:', error));
   } catch (e) {
+    console.error('问答失败:', e);
     nodes.value = {
       ...nodes.value,
-      [nodeId]: { ...nodes.value[nodeId], answer: '【出错了】' + e.message }
+      [nodeId]: { ...nodes.value[nodeId], error: e.message || '出错了，请重试' }
     };
     persist();
   } finally {
     sending.value = false;
     scrollToBottom();
   }
+}
+
+// 重试失败的回答
+async function retryNode(nodeId) {
+  if (sending.value) return;
+  nodes.value = {
+    ...nodes.value,
+    [nodeId]: { ...nodes.value[nodeId], answer: '', error: '' }
+  };
+  sending.value = true;
+  await runNode(nodeId);
 }
 
 /* ---------- 目录交互 ---------- */

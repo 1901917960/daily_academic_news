@@ -1,4 +1,4 @@
-import { chatJson, getAccessCode } from './client';
+import { chatJson, getOrRequestAccessCode } from './client';
 import {
   formatNewsDate, mergeNewsCandidates, sortCandidatesByDate, filterRecentCandidates
 } from '../utils/news';
@@ -24,6 +24,7 @@ function todayKey() {
 
 // 抓取国外新闻候选（Currents，经由同源代理）
 async function fetchInternationalCandidates() {
+  const code = await getOrRequestAccessCode();
   const results = await Promise.allSettled(
     QUERIES.map(q => {
       const params = new URLSearchParams({
@@ -38,7 +39,7 @@ async function fetchInternationalCandidates() {
       const url = `/api/news/${endpoint}?${params}`;
 
       return fetch(url, {
-        headers: { 'x-access-code': getAccessCode() }
+        headers: { 'x-access-code': code }
       }).then(async r => {
         if (!r.ok) {
           let detail = '';
@@ -64,10 +65,11 @@ async function fetchInternationalCandidates() {
 
 // 抓取国内新闻候选（华尔街见闻/中新网/人民网/钛媒体/爱范儿，RSS 经同源代理）
 async function fetchDomesticCandidates() {
+  const code = await getOrRequestAccessCode();
   const results = await Promise.allSettled(
     RSS_SOURCES.map(src =>
       fetch(`/api/rss?source=${encodeURIComponent(src.key)}`, {
-        headers: { 'x-access-code': getAccessCode() }
+        headers: { 'x-access-code': code }
       }).then(async r => {
         if (!r.ok) {
           let detail = '';
@@ -176,6 +178,7 @@ export async function fetchDailyNews() {
     summary: (picked?.summary_cn || candidate.description || candidate.title).trim(),
     source: candidate.author || '实时新闻',
     url: candidate.url,
+    image: candidate.image || '',
     date: formatNewsDate(candidate.published) || todayKey(),
     originalTitle: candidate.title,
     domesticQuery: (picked?.search_keywords || '').trim(),

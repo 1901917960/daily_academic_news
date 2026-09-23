@@ -3,21 +3,21 @@
     <!-- 左侧：主内容 -->
     <main class="main-content">
       <header>
-  <h1>📰 每日学术洞察</h1>
-  <div class="header-actions">
-    <button
-      @click="toggleLock"
-      :class="['lock-btn', { 'lock-active': locked }]"
-      :disabled="!todayRecord"
-    >
-      {{ locked ? '🔓 撤销确认' : '🔒 确认本日' }}
-    </button>
-    <button @click="generate" :disabled="loading || locked">
-      {{ loading ? '分析中...' : '生成今日报告' }}
-    </button>
-    <button @click="showSettings = true" title="新闻来源、新闻偏好、数据管理">设置</button>
-  </div>
-</header>
+        <h1>📰 每日学术洞察</h1>
+        <div class="header-actions">
+          <button
+            @click="toggleLock"
+            :class="['lock-btn', { 'lock-active': locked }]"
+            :disabled="!todayRecord"
+          >
+            {{ locked ? '🔓 撤销确认' : '🔒 确认本日' }}
+          </button>
+          <button @click="generate" :disabled="loading || locked">
+            {{ loading ? '分析中...' : '生成今日报告' }}
+          </button>
+          <button @click="showSettings = true" title="新闻来源、新闻偏好、数据管理">设置</button>
+        </div>
+      </header>
 
       <div v-if="preferenceSummary" class="pref-bar">
         <span class="pref-label">偏好学习</span>
@@ -26,11 +26,27 @@
       </div>
 
       <div v-if="loading" class="loading">
-        <div class="loading-step">{{ step }}</div>
+        <div class="steps">
+          <div
+            v-for="(s, i) in steps"
+            :key="s.label"
+            class="step-item"
+            :class="{ active: stepIndex === i, done: stepIndex > i }"
+          >
+            <span class="step-dot">{{ stepIndex > i ? '✓' : i + 1 }}</span>
+            <span class="step-label">{{ s.label }}</span>
+          </div>
+        </div>
         <div class="loading-hint">已用时 {{ elapsed }} 秒，请保持页面打开</div>
       </div>
 
       <div v-else-if="error" class="error">{{ error }}</div>
+
+      <div v-if="libraryStats.reports > 0 || libraryStats.knowledge > 0" class="stats-strip">
+        <span class="stats-item">{{ libraryStats.reports }} 天报告</span>
+        <span class="stats-item">{{ libraryStats.knowledge }} 个知识点</span>
+        <span class="stats-item">{{ libraryStats.chatNodes }} 轮对话</span>
+      </div>
 
       <div v-if="allDates.length > 0" class="date-bar">
         <span class="date-bar-label">报告日期：</span>
@@ -42,6 +58,11 @@
         >
           {{ d === todayKey ? '今天' : d }}
         </button>
+        <button
+          v-if="allRecords.length >= 2"
+          class="date-btn weekly-btn"
+          @click="showWeekly = true"
+        >周报</button>
       </div>
 
       <ReportView
@@ -50,7 +71,17 @@
         :analysis="currentRecord.analysis"
       />
       <div v-else-if="!loading && !error" class="empty">
-        还没有任何报告，点击右上角生成
+        <svg class="empty-illustration" viewBox="0 0 120 90" fill="none" aria-hidden="true">
+          <rect x="14" y="12" width="92" height="66" rx="8" stroke="#cbd5e1" stroke-width="2.5"/>
+          <line x1="26" y1="30" x2="94" y2="30" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="26" y1="42" x2="82" y2="42" stroke="#e2e8f0" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="26" y1="54" x2="70" y2="54" stroke="#e2e8f0" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="60" cy="70" r="4" fill="#cbd5e1"/>
+          <circle cx="72" cy="70" r="4" fill="#e2e8f0"/>
+          <circle cx="84" cy="70" r="4" fill="#e2e8f0"/>
+        </svg>
+        <p>还没有任何报告</p>
+        <p class="empty-sub">点击右上角「生成今日报告」，AI 会为你挑选今日最值得分析的财经新闻</p>
       </div>
     </main>
 
@@ -69,6 +100,8 @@
 
     <SettingsPanel v-if="showSettings" @close="closeSettings" @open-data="openData" />
     <DataPanel v-if="showData" @close="showData = false" />
+    <AccessCodeModal v-if="showAccessCode" @close="showAccessCode = false" />
+    <WeeklyPanel v-if="showWeekly" :records="allRecords" @close="showWeekly = false" />
   </div>
 </template>
 
@@ -80,16 +113,20 @@ import ReportView from './components/ReportView.vue';
 import ChatBox from './components/ChatBox.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import DataPanel from './components/DataPanel.vue';
+import AccessCodeModal from './components/AccessCodeModal.vue';
+import WeeklyPanel from './components/WeeklyPanel.vue';
 import { fetchDailyNews } from './api/news';
 import { analyzeNews } from './api/analyze';
+import { getAccessCode } from './api/client';
 import {
   getTodayKey, getRecord, saveRecord, getAllRecords,
-  getPreferences, recordPreference, retractPreference, cleanupStorage
+  getPreferences, recordPreference, retractPreference, cleanupStorage,
+  getSettings, getAllKnowledge, countChatTreeNodes
 } from './storage';
 
 const loading = ref(false);
 const error = ref('');
-const step = ref('');
+const stepIndex = ref(0);
 const elapsed = ref(0);
 let elapsedTimer = null;
 const todayKey = getTodayKey();
@@ -99,9 +136,30 @@ const locked = ref(false);
 const prefs = ref(getPreferences());
 const showSettings = ref(false);
 const showData = ref(false);
+const showAccessCode = ref(false);
+const showWeekly = ref(false);
+const libraryStats = ref({ reports: 0, knowledge: 0, edges: 0, chatNodes: 0 });
+let reminderTimer = null;
+
+const steps = [
+  { label: '抓取今日新闻' },
+  { label: '财经分析与文献' },
+  { label: '保存报告' }
+];
 
 function refreshPrefs() {
   prefs.value = getPreferences();
+}
+
+function refreshStats() {
+  const kg = getAllKnowledge();
+  const chat = countChatTreeNodes();
+  libraryStats.value = {
+    reports: allRecords.value.length,
+    knowledge: kg.nodes.length,
+    edges: kg.edges.length,
+    chatNodes: chat.nodes
+  };
 }
 
 function closeSettings() {
@@ -132,8 +190,8 @@ const preferenceSummary = computed(() => {
   return [...liked, ...disliked].join(' · ');
 });
 
-function startProgress(initialStep) {
-  step.value = initialStep;
+function startProgress(initialStepIndex) {
+  stepIndex.value = initialStepIndex;
   elapsed.value = 0;
   clearInterval(elapsedTimer);
   elapsedTimer = setInterval(() => { elapsed.value++; }, 1000);
@@ -187,6 +245,7 @@ const todayRecord = computed(() =>
 
 function refreshData() {
   allRecords.value = getAllRecords();
+  refreshStats();
 }
 
 async function generate() {
@@ -208,11 +267,11 @@ async function generate() {
       refreshPrefs();
     }
 
-    startProgress('正在抓取今日新闻…');
+    startProgress(0);
     const news = await fetchDailyNews();
-    step.value = '正在生成财经分析与文献方向（约 30-60 秒）…';
+    stepIndex.value = 1;
     const analysis = await analyzeNews(news);
-    step.value = '正在保存报告…';
+    stepIndex.value = 2;
     saveRecord(todayKey, news, analysis);
     refreshData();
     selectedDate.value = todayKey;
@@ -221,7 +280,7 @@ async function generate() {
     console.error('生成失败:', e);
     // 根据错误类型提供更友好的提示
     if (e.message.includes('apiKey') || e.message.includes('API key') || e.message.includes('401')) {
-      error.value = '请在 .env 文件中配置有效的 DeepSeek API Key';
+      error.value = '访问码无效或 API 配置错误，请检查后重试';
     } else if (e.message.includes('网络') || e.message.includes('fetch') || e.message.includes('Failed to fetch')) {
       error.value = '网络连接失败，请检查网络状态后重试';
     } else if (e.message.includes('新闻')) {
@@ -246,11 +305,54 @@ async function generate() {
   }
 }
 
+/* ---------- 访问码弹窗 ---------- */
+function onAccessCodeRequired() {
+  if (!import.meta.env.DEV) {
+    showAccessCode.value = true;
+  }
+}
+
+/* ---------- 深色模式 ---------- */
+function applyTheme(dark) {
+  document.documentElement.classList.toggle('dark', !!dark);
+}
+
+/* ---------- 每日提醒 ---------- */
+function checkReminder() {
+  if (!getSettings().reminderEnabled) return;
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if (getRecord(todayKey)) return; // 已有今日报告
+  const hour = new Date().getHours();
+  if (hour < 7 || hour > 22) return;
+  try {
+    new Notification('每日学术洞察', { body: '今天的报告还没有生成，来看看今日值得分析的财经新闻吧' });
+  } catch { /* ignore */ }
+}
+
+function setupReminder() {
+  clearInterval(reminderTimer);
+  if (getSettings().reminderEnabled) {
+    checkReminder();
+    reminderTimer = setInterval(checkReminder, 30 * 60 * 1000);
+  }
+}
+
 onMounted(() => {
   // 启动时自动清理超期数据，避免长期使用撑爆本地存储
   cleanupStorage();
+  applyTheme(getSettings().darkMode);
   refreshData();
   refreshLock();
+
+  // 部署环境无访问码时弹出输入框
+  if (!import.meta.env.DEV && !getAccessCode()) {
+    showAccessCode.value = true;
+  }
+  window.addEventListener('access-code-required', onAccessCodeRequired);
+  window.addEventListener('settings-changed', onSettingsChanged);
+
+  setupReminder();
+
   const existing = getRecord(todayKey);
   if (existing) {
     const dates = getAllRecords().map(r => r.date).sort().reverse();
@@ -260,7 +362,15 @@ onMounted(() => {
   }
 });
 
+function onSettingsChanged() {
+  applyTheme(getSettings().darkMode);
+  setupReminder();
+}
+
 onUnmounted(() => {
   stopProgress();
+  clearInterval(reminderTimer);
+  window.removeEventListener('access-code-required', onAccessCodeRequired);
+  window.removeEventListener('settings-changed', onSettingsChanged);
 });
 </script>

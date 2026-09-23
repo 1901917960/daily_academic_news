@@ -19,6 +19,14 @@ export async function analyzeNews(news) {
   "why_interesting": "为什么这个现象值得从财经/管理角度分析，它反映了什么深层问题",
   "institutional_gap": "现象背后的制度缝隙或规则空白（若无则输出空字符串）",
   "stakeholder_map": "各方参与者的策略与博弈，如企业、员工、监管、消费者等（100字以内）",
+  "stakeholder_graph": {
+    "nodes": [
+      { "name": "参与方名称（2-4字）", "desc": "一句策略描述（不超过20字）" }
+    ],
+    "edges": [
+      { "from": "参与方名称", "to": "参与方名称", "label": "关系（2-4字，如施压、监管、抵制）" }
+    ]
+  },
   "research_angles": [
     {
       "field": "会计学 | 管理学 | 金融学 | 交叉领域",
@@ -55,9 +63,14 @@ export async function analyzeNews(news) {
   // 附加步骤：检索相关文献，从其"不足与展望"衍生研究方向（失败不影响主报告）
   try {
     const angle = await generateLiteratureAngle(news, analysis);
-    if (angle) analysis.literature_angle = angle;
+    if (angle) {
+      analysis.literature_angle = angle;
+    } else {
+      analysis.literature_unavailable = true;
+    }
   } catch (e) {
     console.error('文献研究方向生成失败:', e);
+    analysis.literature_unavailable = true;
   }
 
   return analysis;

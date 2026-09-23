@@ -29,6 +29,18 @@ function extractLink(block) {
   return '';
 }
 
+// 提取条目配图：enclosure / media:content / media:thumbnail
+function extractImage(block) {
+  const enclosure = /<enclosure[^>]*url=["']([^"']+)["']/i.exec(block);
+  if (enclosure) return enclosure[1].trim();
+
+  const media = /<media:(?:content|thumbnail)[^>]*url=["']([^"']+)["']/i.exec(block);
+  if (media) return media[1].trim();
+
+  const content = /<content[^>]*url=["']([^"']+)["']/i.exec(block);
+  return content ? content[1].trim() : '';
+}
+
 // 清洗文本：去 CDATA、HTML 标签、解码常见实体、压缩空白
 export function cleanRssText(text) {
   let t = String(text || '');
@@ -79,7 +91,8 @@ export function parseRssFeed(xmlText, { maxItems = 30 } = {}) {
       description: description.length > 200 ? description.slice(0, 200) + '…' : description,
       url: extractLink(block),
       author: cleanRssText(extractTag(block, ['dc:creator', 'source', 'author'])),
-      published: normalizeRssDate(extractTag(block, ['pubDate', 'published', 'updated', 'dc:date']))
+      published: normalizeRssDate(extractTag(block, ['pubDate', 'published', 'updated', 'dc:date'])),
+      image: extractImage(block)
     });
   }
 

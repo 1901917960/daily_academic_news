@@ -92,6 +92,21 @@ describe('parseRssFeed', () => {
     const xml = '<rss><channel><item><title>T</title><pubDate>not-a-date</pubDate></item></channel></rss>';
     expect(parseRssFeed(xml)[0].published).toBe('');
   });
+
+  it('提取 enclosure 配图', () => {
+    const xml = '<rss><channel><item><title>T</title><enclosure url="https://example.com/img.jpg" type="image/jpeg"/></item></channel></rss>';
+    expect(parseRssFeed(xml)[0].image).toBe('https://example.com/img.jpg');
+  });
+
+  it('提取 media:content 配图', () => {
+    const xml = '<rss><channel><item><title>T</title><media:content url="https://example.com/m.jpg" type="image/jpeg"/></item></channel></rss>';
+    expect(parseRssFeed(xml)[0].image).toBe('https://example.com/m.jpg');
+  });
+
+  it('无配图返回空字符串', () => {
+    const xml = '<rss><channel><item><title>T</title></item></channel></rss>';
+    expect(parseRssFeed(xml)[0].image).toBe('');
+  });
 });
 
 describe('cleanRssText', () => {

@@ -61,7 +61,8 @@ export function mergeNewsCandidates(newsLists, limit = 60) {
         description: (item.description || '').trim(),
         url: item.url || '',
         author: item.author || '',
-        published: item.published || ''
+        published: item.published || '',
+        image: item.image || ''
       });
       if (candidates.length >= limit) return candidates;
     }

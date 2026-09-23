@@ -96,10 +96,13 @@ export function getSettings() {
   try {
     const data = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
     return {
-      newsSource: data.newsSource === 'domestic' ? 'domestic' : 'international'
+      newsSource: data.newsSource === 'domestic' ? 'domestic' : 'international',
+      darkMode: !!data.darkMode,
+      reminderEnabled: !!data.reminderEnabled,
+      reportView: data.reportView === 'compact' ? 'compact' : 'full'
     };
   } catch {
-    return { newsSource: 'international' };
+    return { newsSource: 'international', darkMode: false, reminderEnabled: false, reportView: 'full' };
   }
 }
 
@@ -107,6 +110,81 @@ export function setSettings(updates) {
   const next = { ...getSettings(), ...(updates || {}) };
   safeSetItem(SETTINGS_KEY, JSON.stringify(next));
   return next;
+}
+
+/* ---------- 周报缓存 ---------- */
+
+const WEEKLY_KEY = 'daily_academic_weekly';
+
+export function getWeeklyReport(weekKey) {
+  try {
+    const all = JSON.parse(localStorage.getItem(WEEKLY_KEY) || '{}');
+    return all[weekKey] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveWeeklyReport(weekKey, report) {
+  try {
+    const all = JSON.parse(localStorage.getItem(WEEKLY_KEY) || '{}');
+    all[weekKey] = report;
+    safeSetItem(WEEKLY_KEY, JSON.stringify(all));
+  } catch (e) {
+    console.error('保存周报失败', e);
+  }
+}
+
+// 当前周起始日（周一），用于周报缓存键
+export function getWeekKey() {
+  const d = new Date();
+  const day = d.getDay() || 7; // 周日视为 7
+  d.setDate(d.getDate() - day + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day2 = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day2}`;
+}
+
+/* ---------- 知识点复习 ---------- */
+
+const REVIEW_KEY = 'daily_academic_review';
+
+export function getReviewState() {
+  try {
+    return JSON.parse(localStorage.getItem(REVIEW_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+export function recordReview(name, rating, schedule) {
+  try {
+    const state = getReviewState();
+    state[name] = schedule;
+    safeSetItem(REVIEW_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('保存复习记录失败', e);
+  }
+}
+
+/* ---------- 对话统计 ---------- */
+
+export function countChatTreeNodes() {
+  try {
+    const all = JSON.parse(localStorage.getItem(CHAT_TREE_KEY) || '{}');
+    let days = 0;
+    let nodes = 0;
+    for (const tree of Object.values(all)) {
+      if (tree && tree.nodes) {
+        days++;
+        nodes += Object.keys(tree.nodes).length;
+      }
+    }
+    return { days, nodes };
+  } catch {
+    return { days: 0, nodes: 0 };
+  }
 }
 
 const PREF_KEY = 'daily_academic_prefs';
@@ -924,7 +1002,8 @@ export function cleanupStorage() {
 
 const EXPORT_KEYS = [
   KEY, CHAT_TREE_KEY, KG_KEY, KG_CHAT_KEY, KG_MANUAL_KEY,
-  KG_AI_KEY, KG_CONCEPT_KEY, KG_PREF_KEY, PREF_KEY, SETTINGS_KEY, LOCK_KEY
+  KG_AI_KEY, KG_CONCEPT_KEY, KG_PREF_KEY, PREF_KEY, SETTINGS_KEY,
+  WEEKLY_KEY, REVIEW_KEY, LOCK_KEY
 ];
 
 function byteSize(value) {
