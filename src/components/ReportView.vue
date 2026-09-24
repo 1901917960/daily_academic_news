@@ -73,8 +73,8 @@
                 class="stakeholder-line"
               />
               <text
-                :x="(e.x1 + e.x2) / 2"
-                :y="(e.y1 + e.y2) / 2 - 4"
+                :x="e.lx"
+                :y="e.ly"
                 class="stakeholder-edge-label"
                 text-anchor="middle"
               >{{ e.label }}</text>
@@ -171,11 +171,12 @@ import { getAllKnowledge, getSettings, setSettings } from '../storage';
 import { createKnowledgeHighlighter } from '../utils/highlight';
 import { buildDomesticSearchUrl } from '../utils/links';
 import { buildReportMarkdown } from '../utils/reportMarkdown';
+import { computeStakeholderPositions } from '../utils/stakeholder';
 
 const props = defineProps(['news', 'analysis']);
 
 const GRAPH_W = 320;
-const GRAPH_H = 180;
+const GRAPH_H = 200;
 
 const imageFailed = ref(false);
 // 用普通对象做展开状态（比 Set 更直观可靠）
@@ -212,32 +213,42 @@ const domesticUrl = computed(() =>
     : buildDomesticSearchUrl(props.news.domesticQuery || props.news.title)
 );
 
-// 参与方博弈关系图布局
+// 参与方博弈关系图布局：网格/三角布局避免节点重叠，连线上标签沿垂直方向偏移避免遮挡
 const stakeholderGraph = computed(() => {
   const graph = props.analysis.stakeholder_graph;
   if (!graph || !Array.isArray(graph.nodes) || graph.nodes.length < 2) return null;
 
-  const nodes = graph.nodes;
-  const positions = {};
-  nodes.forEach((n, i) => {
-    const angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
-    positions[n.name] = {
-      x: GRAPH_W / 2 + (GRAPH_W / 2 - 70) * Math.cos(angle),
-      y: GRAPH_H / 2 + (GRAPH_H / 2 - 40) * Math.sin(angle)
-    };
-  });
+  const nodes = graph.nodes.slice(0, 6);
+  const positions = computeStakeholderPositions(nodes.length, GRAPH_W, GRAPH_H);
+  const byName = new Map();
+  nodes.forEach((n, i) => byName.set(n.name, positions[i]));
 
   const edges = (graph.edges || [])
-    .map(e => {
-      const a = positions[e.from];
-      const b = positions[e.to];
+    .filter(e => e && e.from && e.to && e.from !== e.to)
+    .map((e, i) => {
+      const a = byName.get(e.from);
+      const b = byName.get(e.to);
       if (!a || !b) return null;
-      return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, label: e.label || '' };
+
+      // 标签放在连线 45% 处，沿垂直方向交替偏移，避免与节点、其他标签重叠
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const side = (i % 2 === 0 ? 1 : -1) * 12;
+      return {
+        x1: a.x,
+        y1: a.y,
+        x2: b.x,
+        y2: b.y,
+        label: e.label || '',
+        lx: a.x + dx * 0.45 + (-dy / len) * side,
+        ly: a.y + dy * 0.45 + (dx / len) * side
+      };
     })
     .filter(Boolean);
 
   return {
-    nodes: nodes.map(n => ({ ...n, ...positions[n.name] })),
+    nodes: nodes.map((n, i) => ({ ...n, ...positions[i] })),
     edges
   };
 });
