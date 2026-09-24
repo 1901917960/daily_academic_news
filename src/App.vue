@@ -22,7 +22,6 @@
       <div v-if="preferenceSummary" class="pref-bar">
         <span class="pref-label">偏好学习</span>
         <span class="pref-text">{{ preferenceSummary }}</span>
-        <button class="pref-reset" @click="showSettings = true">设置</button>
       </div>
 
       <div v-if="loading" class="loading">
@@ -50,14 +49,11 @@
 
       <div v-if="allDates.length > 0" class="date-bar">
         <span class="date-bar-label">报告日期：</span>
-        <button
-          v-for="d in allDates"
-          :key="d"
-          :class="['date-btn', { active: d === selectedDate }]"
-          @click="selectedDate = d"
-        >
-          {{ d === todayKey ? '今天' : d }}
-        </button>
+        <DatePicker
+          :selected-date="selectedDate"
+          :available-dates="allDates"
+          @select="selectedDate = $event"
+        />
         <button
           v-if="allRecords.length >= 2"
           class="date-btn weekly-btn"
@@ -115,6 +111,7 @@ import SettingsPanel from './components/SettingsPanel.vue';
 import DataPanel from './components/DataPanel.vue';
 import AccessCodeModal from './components/AccessCodeModal.vue';
 import WeeklyPanel from './components/WeeklyPanel.vue';
+import DatePicker from './components/DatePicker.vue';
 import { fetchDailyNews } from './api/news';
 import { analyzeNews } from './api/analyze';
 import { getAccessCode } from './api/client';

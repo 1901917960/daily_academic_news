@@ -136,6 +136,7 @@
             <span class="tag maturity">
               {{ analysis.literature_angle.paper_year }}<template v-if="analysis.literature_angle.paper_venue"> · {{ analysis.literature_angle.paper_venue }}</template>
             </span>
+            <span v-if="analysis.literature_angle.is_open_access" class="tag oa">开放获取</span>
           </div>
           <h4 v-html="highlightKnowledge(analysis.literature_angle.research_question)"></h4>
           <span class="angle-chevron">{{ literatureExpanded ? '▾' : '▸' }}</span>
@@ -158,7 +159,7 @@
           <div class="detail-row"><b>理论视角：</b><span v-html="highlightKnowledge(analysis.literature_angle.theoretical_lens)"></span></div>
           <div class="detail-row"><b>方法建议：</b><span v-html="highlightKnowledge(analysis.literature_angle.methodology_hint)"></span></div>
           <div class="detail-row"><b>数据来源：</b><span v-html="highlightKnowledge(analysis.literature_angle.data_source_hint)"></span></div>
-          <div class="lit-note">文献来自 OpenAlex 检索；不足与展望为基于摘要的推断</div>
+          <div class="lit-note">论文信息（标题/作者/期刊/链接）来自 OpenAlex 真实学术数据库；不足与展望为 AI 基于摘要的推断</div>
         </div>
       </div>
 

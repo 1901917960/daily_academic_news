@@ -2481,3 +2481,181 @@ html.dark .kg-btn-active {
   border-color: #4f5bd4;
   color: #a5b0fc;
 }
+
+/* ============ 日期选择器（日历） ============ */
+.date-picker {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.date-picker-btn {
+  cursor: pointer;
+}
+
+.date-caret {
+  font-size: 10px;
+  color: #999;
+  margin-left: 2px;
+}
+
+.date-picker-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1000;
+  width: 252px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+}
+
+.date-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.date-picker-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.date-nav {
+  width: 26px;
+  height: 26px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  color: #555;
+}
+
+.date-nav:hover {
+  background: #f5f5f7;
+}
+
+.date-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  text-align: center;
+}
+
+.date-picker-weekday {
+  font-size: 11px;
+  color: #999;
+  padding: 4px 0;
+}
+
+.date-picker-day {
+  height: 30px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  color: #333;
+}
+
+.date-picker-day.is-out {
+  color: #d5d9e0;
+  cursor: default;
+  visibility: hidden;
+}
+
+.date-picker-day.has-report:hover {
+  background: #eef2ff;
+}
+
+.date-picker-day.is-today {
+  outline: 1.5px solid #c7d2fe;
+}
+
+.date-picker-day.is-selected {
+  background: #4f46e5;
+  color: #fff;
+  font-weight: 600;
+}
+
+.date-picker-day:disabled {
+  color: #d5d9e0;
+  cursor: not-allowed;
+  background: none;
+}
+
+.date-picker-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #ececf0;
+  font-size: 11.5px;
+  color: #999;
+}
+
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6366f1;
+  display: inline-block;
+}
+
+/* 开放获取标签 */
+.tag.oa {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+/* ============ 深色模式补充 ============ */
+html.dark .date-picker-pop {
+  background: #1a1d24;
+  border-color: #2a2f3a;
+}
+
+html.dark .date-picker-title {
+  color: #e6e8ec;
+}
+
+html.dark .date-nav {
+  background: #22262f;
+  border-color: #333a48;
+  color: #d7dae0;
+}
+
+html.dark .date-picker-day {
+  color: #c2c8d2;
+}
+
+html.dark .date-picker-day.is-out {
+  color: #3b4252;
+}
+
+html.dark .date-picker-day:disabled {
+  color: #3b4252;
+}
+
+html.dark .date-picker-day.has-report:hover {
+  background: #23294a;
+}
+
+html.dark .date-picker-day.is-selected {
+  background: #4f5bd4;
+  color: #fff;
+}
+
+html.dark .date-picker-day.is-today {
+  outline-color: #4f5bd4;
+}
+
+html.dark .tag.oa {
+  background: #10352a;
+  color: #34d399;
+}
