@@ -2251,15 +2251,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   margin-top: 6px;
 }
 
-/* ============ 日期栏横向滚动 ============ */
-.date-bar {
-  overflow-x: auto;
-  overflow-y: hidden;
-  flex-wrap: nowrap;
-  scrollbar-width: thin;
-  padding-bottom: 10px;
-}
-
+/* ============ 日期栏（日历弹窗需要不被裁切） ============ */
 .date-bar .date-btn {
   flex-shrink: 0;
 }
@@ -2502,7 +2494,7 @@ html.dark .kg-btn-active {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 1000;
+  z-index: 1500;
   width: 252px;
   padding: 12px;
   background: #fff;
