@@ -1883,16 +1883,32 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .stakeholder-line {
   stroke: #cbd5e1;
   stroke-width: 1.5;
-  marker-end: none;
 }
 
-.stakeholder-edge-label {
-  font-size: 10px;
-  fill: #94a3b8;
-  paint-order: stroke;
-  stroke: #fff;
-  stroke-width: 4px;
-  stroke-linejoin: round;
+/* 关系列表（放在图下方，避免被节点遮挡） */
+.stakeholder-relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.stakeholder-relation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #555;
+}
+
+.stakeholder-relation-label {
+  color: #4f46e5;
+  font-weight: 600;
 }
 
 .stakeholder-node {
@@ -2437,9 +2453,14 @@ html.dark .stakeholder-line {
   stroke: #3b4252;
 }
 
-html.dark .stakeholder-edge-label {
-  fill: #8b95a5;
-  stroke: #14171d;
+html.dark .stakeholder-relation {
+  background: #1a1d24;
+  border-color: #2a2f3a;
+  color: #9aa3b2;
+}
+
+html.dark .stakeholder-relation-label {
+  color: #a5b0fc;
 }
 
 html.dark .lit-paper {

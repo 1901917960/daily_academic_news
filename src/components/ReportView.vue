@@ -67,18 +67,26 @@
         <div class="label">参与方策略</div>
         <div v-if="stakeholderGraph" class="stakeholder-graph">
           <svg class="stakeholder-svg" :viewBox="`0 0 ${GRAPH_W} ${GRAPH_H}`" aria-hidden="true">
-            <g v-for="(e, i) in stakeholderGraph.edges" :key="'e' + i">
-              <line
-                :x1="e.x1" :y1="e.y1" :x2="e.x2" :y2="e.y2"
-                class="stakeholder-line"
-              />
-              <text
-                :x="e.lx"
-                :y="e.ly"
-                class="stakeholder-edge-label"
-                text-anchor="middle"
-              >{{ e.label }}</text>
-            </g>
+            <defs>
+              <marker
+                id="stakeholder-arrow"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="5"
+                markerHeight="5"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#a5b4fc" />
+              </marker>
+            </defs>
+            <line
+              v-for="(e, i) in stakeholderGraph.edges"
+              :key="'e' + i"
+              :x1="e.x1" :y1="e.y1" :x2="e.x2" :y2="e.y2"
+              class="stakeholder-line"
+              marker-end="url(#stakeholder-arrow)"
+            />
           </svg>
           <div
             v-for="(n, i) in stakeholderGraph.nodes"
@@ -91,7 +99,13 @@
             <span class="stakeholder-node-desc">{{ n.desc }}</span>
           </div>
         </div>
-        <p v-else v-html="highlightKnowledge(analysis.stakeholder_map)"></p>
+        <div v-if="stakeholderGraph && stakeholderGraph.edges.length" class="stakeholder-relations">
+          <span v-for="(e, i) in stakeholderGraph.edges" :key="'r' + i" class="stakeholder-relation">
+            <span class="stakeholder-relation-pair">{{ e.from }} → {{ e.to }}</span>
+            <span v-if="e.label" class="stakeholder-relation-label">{{ e.label }}</span>
+          </span>
+        </div>
+        <p v-if="!stakeholderGraph" v-html="highlightKnowledge(analysis.stakeholder_map)"></p>
       </section>
     </template>
 
@@ -213,7 +227,7 @@ const domesticUrl = computed(() =>
     : buildDomesticSearchUrl(props.news.domesticQuery || props.news.title)
 );
 
-// 参与方博弈关系图布局：网格/三角布局避免节点重叠，连线上标签沿垂直方向偏移避免遮挡
+// 参与方博弈关系图布局：网格/三角布局避免节点重叠；关系文字放在图下方列表，避免被遮挡
 const stakeholderGraph = computed(() => {
   const graph = props.analysis.stakeholder_graph;
   if (!graph || !Array.isArray(graph.nodes) || graph.nodes.length < 2) return null;
@@ -223,26 +237,28 @@ const stakeholderGraph = computed(() => {
   const byName = new Map();
   nodes.forEach((n, i) => byName.set(n.name, positions[i]));
 
+  const seen = new Set();
   const edges = (graph.edges || [])
-    .filter(e => e && e.from && e.to && e.from !== e.to)
-    .map((e, i) => {
+    .filter(e => {
+      if (!e || !e.from || !e.to || e.from === e.to) return false;
+      // 去重镜像边（A→B 与 B→A 视为同一条）
+      const key = [e.from, e.to].sort().join('||');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(e => {
       const a = byName.get(e.from);
       const b = byName.get(e.to);
       if (!a || !b) return null;
-
-      // 标签放在连线 45% 处，沿垂直方向交替偏移，避免与节点、其他标签重叠
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const side = (i % 2 === 0 ? 1 : -1) * 12;
       return {
+        from: e.from,
+        to: e.to,
+        label: e.label || '',
         x1: a.x,
         y1: a.y,
         x2: b.x,
-        y2: b.y,
-        label: e.label || '',
-        lx: a.x + dx * 0.45 + (-dy / len) * side,
-        ly: a.y + dy * 0.45 + (dx / len) * side
+        y2: b.y
       };
     })
     .filter(Boolean);
