@@ -1885,30 +1885,21 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   stroke-width: 1.5;
 }
 
-/* 关系列表（放在图下方，避免被节点遮挡） */
-.stakeholder-relations {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.stakeholder-relation {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+/* 关系标签：浮在节点之上，保证不被遮挡 */
+.stakeholder-label {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  padding: 1px 7px;
+  background: #fff;
+  border: 1px solid #e0e7ff;
   border-radius: 999px;
-  font-size: 12px;
-  color: #555;
-}
-
-.stakeholder-relation-label {
+  font-size: 10.5px;
+  font-weight: 500;
   color: #4f46e5;
-  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .stakeholder-node {
@@ -2453,13 +2444,9 @@ html.dark .stakeholder-line {
   stroke: #3b4252;
 }
 
-html.dark .stakeholder-relation {
-  background: #1a1d24;
-  border-color: #2a2f3a;
-  color: #9aa3b2;
-}
-
-html.dark .stakeholder-relation-label {
+html.dark .stakeholder-label {
+  background: #23294a;
+  border-color: #4f5bd4;
   color: #a5b0fc;
 }
 

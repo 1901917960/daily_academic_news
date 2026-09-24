@@ -98,12 +98,13 @@
             <span class="stakeholder-node-name">{{ n.name }}</span>
             <span class="stakeholder-node-desc">{{ n.desc }}</span>
           </div>
-        </div>
-        <div v-if="stakeholderGraph && stakeholderGraph.edges.length" class="stakeholder-relations">
-          <span v-for="(e, i) in stakeholderGraph.edges" :key="'r' + i" class="stakeholder-relation">
-            <span class="stakeholder-relation-pair">{{ e.from }} → {{ e.to }}</span>
-            <span v-if="e.label" class="stakeholder-relation-label">{{ e.label }}</span>
-          </span>
+          <span
+            v-for="(e, i) in stakeholderGraph.edges"
+            v-show="e.label"
+            :key="'l' + i"
+            class="stakeholder-label"
+            :style="{ left: (e.lx / GRAPH_W * 100) + '%', top: (e.ly / GRAPH_H * 100) + '%' }"
+          >{{ e.label }}</span>
         </div>
         <p v-if="!stakeholderGraph" v-html="highlightKnowledge(analysis.stakeholder_map)"></p>
       </section>
@@ -185,7 +186,7 @@ import { getAllKnowledge, getSettings, setSettings } from '../storage';
 import { createKnowledgeHighlighter } from '../utils/highlight';
 import { buildDomesticSearchUrl } from '../utils/links';
 import { buildReportMarkdown } from '../utils/reportMarkdown';
-import { computeStakeholderPositions } from '../utils/stakeholder';
+import { computeStakeholderLayout } from '../utils/stakeholder';
 
 const props = defineProps(['news', 'analysis']);
 
@@ -227,46 +228,11 @@ const domesticUrl = computed(() =>
     : buildDomesticSearchUrl(props.news.domesticQuery || props.news.title)
 );
 
-// 参与方博弈关系图布局：网格/三角布局避免节点重叠；关系文字放在图下方列表，避免被遮挡
+// 参与方博弈关系图：网格/三角布局；标签为图上层浮层，保证不被节点遮挡
 const stakeholderGraph = computed(() => {
   const graph = props.analysis.stakeholder_graph;
   if (!graph || !Array.isArray(graph.nodes) || graph.nodes.length < 2) return null;
-
-  const nodes = graph.nodes.slice(0, 6);
-  const positions = computeStakeholderPositions(nodes.length, GRAPH_W, GRAPH_H);
-  const byName = new Map();
-  nodes.forEach((n, i) => byName.set(n.name, positions[i]));
-
-  const seen = new Set();
-  const edges = (graph.edges || [])
-    .filter(e => {
-      if (!e || !e.from || !e.to || e.from === e.to) return false;
-      // 去重镜像边（A→B 与 B→A 视为同一条）
-      const key = [e.from, e.to].sort().join('||');
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .map(e => {
-      const a = byName.get(e.from);
-      const b = byName.get(e.to);
-      if (!a || !b) return null;
-      return {
-        from: e.from,
-        to: e.to,
-        label: e.label || '',
-        x1: a.x,
-        y1: a.y,
-        x2: b.x,
-        y2: b.y
-      };
-    })
-    .filter(Boolean);
-
-  return {
-    nodes: nodes.map((n, i) => ({ ...n, ...positions[i] })),
-    edges
-  };
+  return computeStakeholderLayout(graph.nodes, graph.edges, GRAPH_W, GRAPH_H);
 });
 
 function exportMarkdown() {
